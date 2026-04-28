@@ -1,0 +1,31 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.1'
+
+      # إصلاح مشكلة Flutter path
+      - run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
+
+      - run: flutter clean
+      - run: flutter pub get
+
+      # إعادة إنشاء android لو فيه مشاكل
+      - run: flutter create .
+
+      - run: flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: build/app/outputs/flutter-apk/
