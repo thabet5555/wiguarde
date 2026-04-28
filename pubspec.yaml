@@ -1,5 +1,7 @@
 name: flutter_wifi_detector
+
 description: Advanced WiFi attack detection UI with ESP32 BLE integration
+
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -12,16 +14,13 @@ dependencies:
     sdk: flutter
 
   cupertino_icons: ^1.0.8
-
   fl_chart: ^0.68.0
-
   flutter_local_notifications: ^17.2.2
 
   flutter_localizations:
     sdk: flutter
 
   flutter_blue_plus: ^1.35.3
-
   shared_preferences: ^2.2.3
 
 dev_dependencies:
