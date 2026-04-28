@@ -1,32 +1,19 @@
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withReader('UTF-8') { reader ->
-        localProperties.load(reader)
-    }
+plugins {
+    id "com.android.application"
+    id "org.jetbrains.kotlin.android"
+    id "dev.flutter.flutter-gradle-plugin"
 }
 
-def flutterRoot = localProperties.getProperty('flutter.sdk')
-
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
-apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
-
-
-
-def flutterVersionCode = "1"
-def flutterVersionName = "1.0"
-
 android {
-    namespace "com.example.th"
+    namespace "com.example.wiguarde"
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.example.th"
+        applicationId "com.example.wiguarde"
         minSdk 21
         targetSdk 34
-        versionCode flutterVersionCode.toInteger()
-        versionName flutterVersionName
+        versionCode 1
+        versionName "1.0"
     }
 
     compileOptions {
@@ -45,6 +32,5 @@ android {
     }
 }
 
-flutter {
-    source "../.."
+dependencies {
 }
