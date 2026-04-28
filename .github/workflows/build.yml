@@ -14,14 +14,8 @@ jobs:
         with:
           flutter-version: '3.22.1'
 
-      # إصلاح مشكلة Flutter path
-      - run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
-
       - run: flutter clean
       - run: flutter pub get
-
-      # إعادة إنشاء android لو فيه مشاكل
-      - run: flutter create .
 
       - run: flutter build apk --release
 
