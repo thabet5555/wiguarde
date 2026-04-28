@@ -14,6 +14,8 @@ jobs:
         with:
           flutter-version: '3.22.1'
 
+      - run: echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
+
       - run: flutter clean
       - run: flutter pub get
 
