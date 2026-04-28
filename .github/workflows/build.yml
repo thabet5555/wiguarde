@@ -14,8 +14,11 @@ jobs:
         with:
           flutter-version: '3.22.1'
 
-      - run: flutter clean
+      # ينشئ Android نظيف تلقائيًا
+      - run: flutter create .
+
       - run: flutter pub get
+
       - run: flutter build apk --release
 
       - uses: actions/upload-artifact@v4
