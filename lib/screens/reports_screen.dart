@@ -28,8 +28,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     });
   }
 
-  void loadReports() {
-    if (!BLEManager.isConnected) return;
+  void load() {
     BLEManager.send("history");
   }
 
@@ -40,7 +39,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         title: const Text("Reports"),
         actions: [
           IconButton(
-            onPressed: loadReports,
+            onPressed: load,
             icon: const Icon(Icons.refresh),
           )
         ],
@@ -48,9 +47,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       body: ListView.builder(
         itemCount: reports.length,
         itemBuilder: (_, i) {
-          return ListTile(
-            title: Text(reports[i]),
-          );
+          return ListTile(title: Text(reports[i]));
         },
       ),
     );
