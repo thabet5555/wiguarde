@@ -9,25 +9,18 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-  List<String> reports = [];
+  String report = "";
 
   @override
   void initState() {
     super.initState();
 
-    // طلب history من ESP
-    BLEManager.send("history");
+    BLEManager.setListener((data) {
+      final msg = data["msg"]?.toString() ?? "";
 
-    BLEManager.setListener((msg) {
-
-      // 📜 استقبال history
       if (msg.contains("Attacks") || msg.contains("No attacks")) {
-        final lines = msg.split("\n");
-
         setState(() {
-          reports = lines
-              .where((l) => l.trim().isNotEmpty)
-              .toList();
+          report = msg;
         });
       }
     });
@@ -37,17 +30,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Reports")),
-      body: reports.isEmpty
-          ? const Center(child: Text("لا يوجد بيانات"))
-          : ListView.builder(
-              itemCount: reports.length,
-              itemBuilder: (_, i) {
-                return ListTile(
-                  leading: const Icon(Icons.history),
-                  title: Text(reports[i]),
-                );
-              },
-            ),
+      body: Center(
+        child: Text(report.isEmpty ? "لا يوجد تقرير" : report),
+      ),
     );
   }
 }
