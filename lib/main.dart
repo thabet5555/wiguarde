@@ -24,19 +24,19 @@ class App extends StatefulWidget {
 class _AppState extends State<App> {
   int index = 0;
 
+  final Color primary = const Color(0xFF1E88E5);
+  final Color background = const Color(0xFF0F172A);
+
   @override
   void initState() {
     super.initState();
-    requestPermissions();
+    initPermissions();
   }
 
-  Future<void> requestPermissions() async {
-    await [
-      Permission.bluetooth,
-      Permission.bluetoothScan,
-      Permission.bluetoothConnect,
-      Permission.location,
-    ].request();
+  Future<void> initPermissions() async {
+    await Permission.locationWhenInUse.request();
+    await Permission.bluetoothScan.request();
+    await Permission.bluetoothConnect.request();
   }
 
   void onConnect(device, char) async {
@@ -57,6 +57,17 @@ class _AppState extends State<App> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.dark(
+          primary: primary,
+          secondary: const Color(0xFF2ECC71),
+          error: const Color(0xFFE74C3C),
+          surface: background,
+        ),
+        scaffoldBackgroundColor: background,
+      ),
       home: Scaffold(
         body: SafeArea(child: screens[index]),
         bottomNavigationBar: BottomNav(
