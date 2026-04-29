@@ -19,10 +19,10 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   @override
   void initState() {
     super.initState();
-    start();
+    init();
   }
 
-  Future<void> start() async {
+  Future<void> init() async {
     // طلب الأذونات
     await Permission.locationWhenInUse.request();
     await Permission.bluetoothScan.request();
@@ -30,10 +30,10 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
 
     await Future.delayed(const Duration(seconds: 1));
 
-    scan();
+    startScan();
   }
 
-  Future<void> scan() async {
+  Future<void> startScan() async {
     setState(() => isScanning = true);
 
     await FlutterBluePlus.stopScan();
@@ -58,16 +58,30 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
 
       final services = await d.discoverServices();
 
+      BluetoothCharacteristic? writeChar;
+
       for (var s in services) {
         for (var c in s.characteristics) {
-          if (c.properties.write) {
-            await BLEManager.setConnection(d, c);
-            widget.onConnected(d, c);
-            return;
+          // 🔥 اختيار أي characteristic يدعم الإرسال
+          if (c.properties.write || c.properties.writeWithoutResponse) {
+            writeChar = c;
           }
         }
       }
-    } catch (_) {}
+
+      if (writeChar != null) {
+        await BLEManager.setConnection(d, writeChar);
+        widget.onConnected(d, writeChar);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("❌ لم يتم العثور على قناة إرسال")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("خطأ في الاتصال: $e")),
+      );
+    }
   }
 
   @override
@@ -84,7 +98,7 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: scan,
+            onPressed: startScan,
           )
         ],
       ),
