@@ -38,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
 
+    // استقبال بيانات من ESP32
     BLEManager.setListener((data) {
       final attack = {
         "ssid": data["ssid"] ?? "ESP32",
@@ -93,7 +94,15 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  // 🔥 تشغيل الفحص (بعد التأكد من الاتصال)
   void _toggleRunning() {
+    if (!BLEManager.isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("❌ لم يتم الاتصال بالبلوتوث")),
+      );
+      return;
+    }
+
     setState(() {
       _isRunning = !_isRunning;
     });
@@ -110,7 +119,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // 🔥 اختيار شبكة
   void _showNetworks() {
+    if (!BLEManager.isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("❌ لازم تتصل بالجهاز أول")),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       builder: (_) {
