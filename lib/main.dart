@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import 'ble_manager.dart';
 import 'screens/home_screen.dart';
@@ -33,24 +34,23 @@ class _AppState extends State<App> {
     requestPermissions();
   }
 
-  // 🔥 طلب الأذونات + التأكد منها
   Future<void> requestPermissions() async {
     await Permission.locationWhenInUse.request();
     await Permission.bluetoothScan.request();
     await Permission.bluetoothConnect.request();
   }
 
-  // 🔵 بعد الاتصال
-  void onConnect(device, char) async {
+  // ✅ اتصال البلوتوث مضبوط
+  void onConnect(BluetoothDevice device, BluetoothCharacteristic char) async {
     await BLEManager.setConnection(device, char);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ تم الاتصال بالجهاز")),
-      );
+    if (!mounted) return;
 
-      setState(() => index = 0);
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("✅ تم الاتصال بالجهاز")),
+    );
+
+    setState(() => index = 0);
   }
 
   @override
@@ -66,31 +66,24 @@ class _AppState extends State<App> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-
-      // 🎨 الثيم (رجعناه مثل أول)
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-
         colorScheme: ColorScheme.dark(
           primary: primary,
           secondary: const Color(0xFF2ECC71),
           error: const Color(0xFFE74C3C),
           surface: background,
         ),
-
         scaffoldBackgroundColor: background,
-
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF0F172A),
           centerTitle: true,
           elevation: 0,
         ),
       ),
-
       home: Scaffold(
         body: SafeArea(child: screens[index]),
-
         bottomNavigationBar: BottomNav(
           selectedIndex: index,
           isArabic: true,
