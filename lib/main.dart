@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
+import 'ble_manager.dart';
 import 'screens/home_screen.dart';
 import 'screens/bluetooth_screen.dart';
-import 'screens/reports_screen.dart';
 import 'screens/attacks_screen.dart';
 import 'screens/statistics_screen.dart';
+import 'screens/reports_screen.dart';
 import 'screens/settings_screen.dart';
 import 'widgets/bottom_nav.dart';
 
@@ -23,9 +25,6 @@ class App extends StatefulWidget {
 class _AppState extends State<App> {
   int index = 0;
 
-  final Color primary = const Color(0xFF1E88E5);
-  final Color background = const Color(0xFF0F172A);
-
   @override
   void initState() {
     super.initState();
@@ -38,18 +37,25 @@ class _AppState extends State<App> {
     await Permission.bluetoothConnect.request();
   }
 
+  // ✅ الحل هنا
+  void onConnect(BluetoothDevice device,
+      BluetoothCharacteristic char) async {
+    await BLEManager.setConnection(device, char);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ تم الاتصال")),
+      );
+
+      setState(() => index = 0);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screens = [
       const HomeScreen(),
-
-      // ✅ تم تعديل البلوتوث هنا
-      BluetoothScreen(
-        onConnected: () {
-          setState(() => index = 0);
-        },
-      ),
-
+      BluetoothScreen(onConnected: onConnect), // ✅ مهم
       const ReportsScreen(),
       const AttacksScreen(),
       const StatisticsScreen(),
@@ -58,22 +64,6 @@ class _AppState extends State<App> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.dark(
-          primary: primary,
-          secondary: const Color(0xFF2ECC71),
-          error: const Color(0xFFE74C3C),
-          surface: background,
-        ),
-        scaffoldBackgroundColor: background,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF0F172A),
-          centerTitle: true,
-          elevation: 0,
-        ),
-      ),
       home: Scaffold(
         body: SafeArea(child: screens[index]),
         bottomNavigationBar: BottomNav(
