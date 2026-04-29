@@ -4,40 +4,57 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class BLEManager {
   static BluetoothDevice? _device;
-  static BluetoothCharacteristic? _char;
+  static BluetoothCharacteristic? _writeChar;
+  static BluetoothCharacteristic? _notifyChar;
 
   static StreamSubscription? _notifySub;
   static Function(Map<String, dynamic>)? _listener;
 
   // ✅ حالة الاتصال
   static bool get isConnected =>
-      _device != null && _char != null;
+      _device != null && _writeChar != null;
 
-  // 🔵 ربط الجهاز
+  // 🔵 ربط الجهاز واختيار الخصائص الصح
   static Future<void> setConnection(
     BluetoothDevice d,
-    BluetoothCharacteristic c,
+    BluetoothCharacteristic selectedChar,
   ) async {
     _device = d;
-    _char = c;
 
     try {
       await d.connect(timeout: const Duration(seconds: 10));
     } catch (_) {}
 
+    final services = await d.discoverServices();
+
+    for (var s in services) {
+      for (var c in s.characteristics) {
+        // 🔥 للكتابة
+        if (_writeChar == null &&
+            (c.properties.write || c.properties.writeWithoutResponse)) {
+          _writeChar = c;
+        }
+
+        // 🔥 للاستقبال
+        if (_notifyChar == null && c.properties.notify) {
+          _notifyChar = c;
+        }
+      }
+    }
+
     await _startNotify();
   }
 
-  // 🔔 استقبال البيانات
+  // 🔔 تشغيل الاستقبال
   static Future<void> _startNotify() async {
-    if (_char == null) return;
+    if (_notifyChar == null) return;
 
     try {
-      await _char!.setNotifyValue(true);
+      await _notifyChar!.setNotifyValue(true);
 
       await _notifySub?.cancel();
 
-      _notifySub = _char!.lastValueStream.listen((value) {
+      _notifySub = _notifyChar!.lastValueStream.listen((value) {
         if (value.isEmpty) return;
 
         try {
@@ -52,17 +69,17 @@ class BLEManager {
     } catch (_) {}
   }
 
-  // 🎧 مستمع
+  // 🎧 استقبال البيانات
   static void setListener(Function(Map<String, dynamic>) listener) {
     _listener = listener;
   }
 
-  // 📤 إرسال أوامر (🔥 هذا سبب الخطأ)
+  // 📤 إرسال أوامر
   static Future<void> send(
     String cmd, [
     Map<String, dynamic>? data,
   ]) async {
-    if (_char == null) return;
+    if (_writeChar == null) return;
 
     final payload = {
       "cmd": cmd,
@@ -70,14 +87,14 @@ class BLEManager {
     };
 
     try {
-      await _char!.write(
+      await _writeChar!.write(
         utf8.encode(jsonEncode(payload)),
         withoutResponse: true,
       );
     } catch (_) {}
   }
 
-  // 🔌 فصل
+  // 🔌 فصل الاتصال
   static Future<void> disconnect() async {
     try {
       await _notifySub?.cancel();
@@ -85,7 +102,8 @@ class BLEManager {
     } catch (_) {}
 
     _device = null;
-    _char = null;
+    _writeChar = null;
+    _notifyChar = null;
     _listener = null;
   }
 }
