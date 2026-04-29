@@ -30,18 +30,27 @@ class _AppState extends State<App> {
   @override
   void initState() {
     super.initState();
-    initPermissions();
+    requestPermissions();
   }
 
-  Future<void> initPermissions() async {
+  // 🔥 طلب الأذونات + التأكد منها
+  Future<void> requestPermissions() async {
     await Permission.locationWhenInUse.request();
     await Permission.bluetoothScan.request();
     await Permission.bluetoothConnect.request();
   }
 
+  // 🔵 بعد الاتصال
   void onConnect(device, char) async {
     await BLEManager.setConnection(device, char);
-    setState(() => index = 0);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ تم الاتصال بالجهاز")),
+      );
+
+      setState(() => index = 0);
+    }
   }
 
   @override
@@ -57,19 +66,31 @@ class _AppState extends State<App> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+
+      // 🎨 الثيم (رجعناه مثل أول)
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
+
         colorScheme: ColorScheme.dark(
           primary: primary,
           secondary: const Color(0xFF2ECC71),
           error: const Color(0xFFE74C3C),
           surface: background,
         ),
+
         scaffoldBackgroundColor: background,
+
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF0F172A),
+          centerTitle: true,
+          elevation: 0,
+        ),
       ),
+
       home: Scaffold(
         body: SafeArea(child: screens[index]),
+
         bottomNavigationBar: BottomNav(
           selectedIndex: index,
           isArabic: true,
