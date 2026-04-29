@@ -14,40 +14,48 @@ class BluetoothScreen extends StatefulWidget {
 
 class _BluetoothScreenState extends State<BluetoothScreen> {
   List<ScanResult> devices = [];
+  bool isScanning = false;
 
   @override
   void initState() {
     super.initState();
-    initBluetooth();
+    start();
   }
 
-  Future<void> initBluetooth() async {
-    await [
-      Permission.bluetooth,
-      Permission.bluetoothScan,
-      Permission.bluetoothConnect,
-      Permission.location,
-    ].request();
+  Future<void> start() async {
+    // طلب الأذونات
+    await Permission.locationWhenInUse.request();
+    await Permission.bluetoothScan.request();
+    await Permission.bluetoothConnect.request();
 
-    try {
-      await FlutterBluePlus.turnOn();
-    } catch (_) {}
+    await Future.delayed(const Duration(seconds: 1));
 
-    startScan();
+    scan();
   }
 
-  Future<void> startScan() async {
+  Future<void> scan() async {
+    setState(() => isScanning = true);
+
     await FlutterBluePlus.stopScan();
-    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 6));
+
+    await FlutterBluePlus.startScan(
+      timeout: const Duration(seconds: 10),
+      androidUsesFineLocation: true,
+    );
 
     FlutterBluePlus.scanResults.listen((results) {
+      if (!mounted) return;
       setState(() => devices = results);
     });
+
+    await Future.delayed(const Duration(seconds: 10));
+    if (mounted) setState(() => isScanning = false);
   }
 
   Future<void> connect(BluetoothDevice d) async {
     try {
-      await d.connect();
+      await d.connect(timeout: const Duration(seconds: 10));
+
       final services = await d.discoverServices();
 
       for (var s in services) {
@@ -63,28 +71,46 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   }
 
   @override
+  void dispose() {
+    FlutterBluePlus.stopScan();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Bluetooth")),
-      body: devices.isEmpty
-          ? const Center(child: Text("No devices found"))
-          : ListView.builder(
-              itemCount: devices.length,
-              itemBuilder: (_, i) {
-                final d = devices[i].device;
-                return ListTile(
-                  title: Text(
-                    d.platformName.isEmpty
-                        ? "Unknown Device"
-                        : d.platformName,
-                  ),
-                  trailing: ElevatedButton(
-                    onPressed: () => connect(d),
-                    child: const Text("Connect"),
-                  ),
-                );
-              },
-            ),
+      appBar: AppBar(
+        title: const Text("Bluetooth"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: scan,
+          )
+        ],
+      ),
+      body: isScanning
+          ? const Center(child: CircularProgressIndicator())
+          : devices.isEmpty
+              ? const Center(child: Text("شغل الموقع والبلوتوث"))
+              : ListView.builder(
+                  itemCount: devices.length,
+                  itemBuilder: (_, i) {
+                    final d = devices[i].device;
+
+                    return ListTile(
+                      title: Text(
+                        d.platformName.isEmpty
+                            ? "Unknown Device"
+                            : d.platformName,
+                      ),
+                      subtitle: Text(d.remoteId.str),
+                      trailing: ElevatedButton(
+                        onPressed: () => connect(d),
+                        child: const Text("Connect"),
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }
