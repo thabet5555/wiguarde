@@ -9,9 +9,7 @@ class StatisticsScreen extends StatefulWidget {
 }
 
 class _StatisticsScreenState extends State<StatisticsScreen> {
-  String status = "";
-  String network = "";
-  String channel = "";
+  String text = "";
 
   @override
   void initState() {
@@ -22,20 +20,15 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         final msg = data["msg"].toString();
 
         if (msg.contains("Status")) {
-          final lines = msg.split("\n");
-
           setState(() {
-            status = lines.length > 1 ? lines[1] : "";
-            network = lines.length > 2 ? lines[2] : "";
-            channel = lines.length > 3 ? lines[3] : "";
+            text = msg;
           });
         }
       }
     });
   }
 
-  void loadStatus() {
-    if (!BLEManager.isConnected) return;
+  void load() {
     BLEManager.send("status");
   }
 
@@ -46,20 +39,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         title: const Text("Statistics"),
         actions: [
           IconButton(
-            onPressed: loadStatus,
+            onPressed: load,
             icon: const Icon(Icons.refresh),
           )
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            ListTile(title: const Text("Status"), subtitle: Text(status)),
-            ListTile(title: const Text("Network"), subtitle: Text(network)),
-            ListTile(title: const Text("Channel"), subtitle: Text(channel)),
-          ],
-        ),
+        child: Text(text),
       ),
     );
   }
