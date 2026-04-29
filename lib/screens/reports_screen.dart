@@ -15,41 +15,39 @@ class _ReportsScreenState extends State<ReportsScreen> {
   void initState() {
     super.initState();
 
-    BLEManager.setListener((data) {
-      if (data["cmd"] == "RAW") {
-        final msg = data["msg"].toString();
+    // طلب history من ESP
+    BLEManager.send("history");
 
-        if (msg.contains("Attacks")) {
-          setState(() {
-            reports = msg.split("\n");
-          });
-        }
+    BLEManager.setListener((msg) {
+
+      // 📜 استقبال history
+      if (msg.contains("Attacks") || msg.contains("No attacks")) {
+        final lines = msg.split("\n");
+
+        setState(() {
+          reports = lines
+              .where((l) => l.trim().isNotEmpty)
+              .toList();
+        });
       }
     });
-  }
-
-  void load() {
-    BLEManager.send("history");
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Reports"),
-        actions: [
-          IconButton(
-            onPressed: load,
-            icon: const Icon(Icons.refresh),
-          )
-        ],
-      ),
-      body: ListView.builder(
-        itemCount: reports.length,
-        itemBuilder: (_, i) {
-          return ListTile(title: Text(reports[i]));
-        },
-      ),
+      appBar: AppBar(title: const Text("Reports")),
+      body: reports.isEmpty
+          ? const Center(child: Text("لا يوجد بيانات"))
+          : ListView.builder(
+              itemCount: reports.length,
+              itemBuilder: (_, i) {
+                return ListTile(
+                  leading: const Icon(Icons.history),
+                  title: Text(reports[i]),
+                );
+              },
+            ),
     );
   }
 }
