@@ -25,9 +25,14 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
 
     FlutterBluePlus.scanResults.listen((results) {
       setState(() {
-        devices = results
-            .where((r) => r.device.platformName.isNotEmpty)
-            .toList();
+        // 🔥 نجيب جهازك فقط بالاسم أو MAC
+        devices = results.where((r) {
+          final name = r.device.platformName;
+          final mac = r.device.remoteId.str.toUpperCase();
+
+          return name == "ESP32_AttackDetector" ||
+              mac == "DO:CF:13:24:DA:19";
+        }).toList();
       });
     });
   }
@@ -35,36 +40,55 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   void connect(BluetoothDevice d) async {
     await BLEManager.connect(d);
 
-    widget.onConnected(d, d.characteristics.isNotEmpty
-        ? d.characteristics.first
-        : BluetoothCharacteristic(
-            remoteId: d.remoteId,
-            serviceUuid: Guid("0000"),
-            characteristicUuid: Guid("0000"),
-            descriptors: [],
-            properties: CharacteristicProperties(),
-          ));
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("✅ تم الاتصال بالـ ESP")),
+    );
+
+    widget.onConnected(
+      d,
+      d.characteristics.isNotEmpty
+          ? d.characteristics.first
+          : BluetoothCharacteristic(
+              remoteId: d.remoteId,
+              serviceUuid: Guid("0000"),
+              characteristicUuid: Guid("0000"),
+              descriptors: [],
+              properties: CharacteristicProperties(),
+            ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Bluetooth")),
-      body: ListView.builder(
-        itemCount: devices.length,
-        itemBuilder: (_, i) {
-          final d = devices[i].device;
-
-          return ListTile(
-            title: Text(d.platformName),
-            subtitle: Text(d.remoteId.str),
-            trailing: ElevatedButton(
-              onPressed: () => connect(d),
-              child: const Text("Connect"),
-            ),
-          );
-        },
+      appBar: AppBar(
+        title: const Text("Bluetooth"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: scan,
+          )
+        ],
       ),
+      body: devices.isEmpty
+          ? const Center(child: Text("جاري البحث عن ESP..."))
+          : ListView.builder(
+              itemCount: devices.length,
+              itemBuilder: (_, i) {
+                final d = devices[i].device;
+
+                return ListTile(
+                  title: Text(d.platformName),
+                  subtitle: Text(d.remoteId.str),
+                  trailing: ElevatedButton(
+                    onPressed: () => connect(d),
+                    child: const Text("Connect"),
+                  ),
+                );
+              },
+            ),
     );
   }
 }
