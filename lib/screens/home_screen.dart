@@ -32,139 +32,101 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
 
-    BLEManager.setListener((msg) {
+    BLEManager.setListener((data) {
+      print("APP JSON: $data");
 
-      // ✅ استقبال الشبكات من ESP
-      if (msg.contains("Networks found")) {
-        final lines = msg.split("\n");
+      // 📡 الشبكات
+      if (data["cmd"] == "WIFI_LIST") {
+        final List list = data["list"] ?? [];
 
         setState(() {
-          networks = lines
-              .where((l) => l.contains(":"))
-              .map((l) => l.split(":")[1].split("(")[0].trim())
-              .toList();
+          networks = list.map((e) => e.toString()).toList();
         });
 
         return;
       }
 
-      // ✅ استقبال الهجمات
+      // 🚨 الهجمات
+      final attack = {
+        "ssid": data["ssid"] ?? "ESP32",
+        "desc": data["msg"] ?? "",
+        "type": data["cmd"] ?? "UNKNOWN",
+        "risk": int.tryParse(data["risk"].toString()) ?? 50,
+        "time": TimeOfDay.now().format(context),
+        "date": DateTime.now().toString().substring(0, 10),
+      };
+
       setState(() {
-        _attacks.insert(0, {
-          "type": msg,
-          "ssid": currentNetwork,
-          "risk": 50,
-        });
+        _attacks.insert(0, attack);
       });
-    });
-  }
-
-  void _generateTraffic() {
-    final rand = Random();
-    double change = rand.nextDouble() * 20 - 10;
-    double newValue = (_lastValue + change).clamp(0, 100);
-    _lastValue = newValue;
-
-    setState(() {
-      _trafficData.add(TrafficPoint(newValue));
-      if (_trafficData.length > 30) {
-        _trafficData.removeAt(0);
-      }
     });
   }
 
   void _toggleRunning() {
-    if (!BLEManager.isConnected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("❌ لم يتم الاتصال بالبلوتوث")),
-      );
-      return;
-    }
+    if (!BLEManager.isConnected) return;
 
     setState(() => _isRunning = !_isRunning);
 
     if (_isRunning) {
-      BLEManager.send("monitor");
+      BLEManager.send("SCAN_WIFI");
 
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-        _generateTraffic();
+        final rand = Random();
+        double v = (_lastValue + rand.nextDouble() * 10 - 5)
+            .clamp(0, 100);
+        _lastValue = v;
+
+        setState(() {
+          _trafficData.add(TrafficPoint(v));
+          if (_trafficData.length > 30) {
+            _trafficData.removeAt(0);
+          }
+        });
       });
     } else {
-      BLEManager.send("stop");
+      BLEManager.send("STOP_SCAN");
       _timer?.cancel();
     }
   }
 
   void _showNetworks() {
-    if (!BLEManager.isConnected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("❌ لازم تتصل بالجهاز أول")),
-      );
-      return;
-    }
+    if (!BLEManager.isConnected) return;
 
-    // ✅ طلب الشبكات من ESP
-    BLEManager.send("scan");
+    networks.clear();
+
+    BLEManager.send("GET_WIFI");
 
     showModalBottomSheet(
       context: context,
-      builder: (_) {
-        return networks.isEmpty
-            ? const Center(child: Text("جاري البحث عن الشبكات..."))
-            : ListView(
-                children: networks.map((n) {
-                  return ListTile(
-                    leading: const Icon(Icons.wifi),
-                    title: Text(n),
-                    onTap: () {
-                      int index = networks.indexOf(n) + 1;
-
-                      setState(() {
-                        currentNetwork = n;
-                      });
-
-                      // ✅ اختيار الشبكة
-                      BLEManager.send("select $index");
-
-                      Navigator.pop(context);
-                    },
-                  );
-                }).toList(),
-              );
-      },
+      builder: (_) => networks.isEmpty
+          ? const Center(child: Text("جاري تحميل الشبكات..."))
+          : ListView(
+              children: networks.map((n) {
+                return ListTile(
+                  title: Text(n),
+                  onTap: () {
+                    setState(() => currentNetwork = n);
+                    Navigator.pop(context);
+                  },
+                );
+              }).toList(),
+            ),
     );
   }
 
-  Widget buildGraph() {
-    return Container(
-      height: 200,
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.black12,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: LineChart(
-        LineChartData(
-          gridData: const FlGridData(show: false),
-          borderData: FlBorderData(show: false),
-          titlesData: const FlTitlesData(show: false),
-          lineBarsData: [
-            LineChartBarData(
-              isCurved: true,
-              color: Colors.blue,
-              barWidth: 3,
-              dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(
-                show: true,
-                color: Colors.blue.withOpacity(0.15),
-              ),
-              spots: List.generate(_trafficData.length, (i) {
-                return FlSpot(i.toDouble(), _trafficData[i].value);
-              }),
-            ),
-          ],
-        ),
+  Widget graph() {
+    return LineChart(
+      LineChartData(
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        lineBarsData: [
+          LineChartBarData(
+            isCurved: true,
+            spots: List.generate(_trafficData.length, (i) {
+              return FlSpot(i.toDouble(), _trafficData[i].value);
+            }),
+          ),
+        ],
       ),
     );
   }
@@ -178,83 +140,21 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("لوحة الحماية الذكية"),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text("Home")),
       body: Column(
         children: [
-          const SizedBox(height: 10),
-
-          Text(
-            BLEManager.isConnected ? "🟢 متصل" : "⚠️ غير متصل",
-            style: const TextStyle(fontSize: 18),
+          Text(BLEManager.isConnected
+              ? "🟢 متصل"
+              : "❌ غير متصل"),
+          ElevatedButton(
+            onPressed: _toggleRunning,
+            child: Text(_isRunning ? "إيقاف" : "تشغيل"),
           ),
-
-          const SizedBox(height: 10),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _toggleRunning,
-                    child: Text(_isRunning ? "إيقاف" : "بدء"),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _showNetworks,
-                    child: Text(currentNetwork),
-                  ),
-                ),
-              ],
-            ),
+          ElevatedButton(
+            onPressed: _showNetworks,
+            child: Text(currentNetwork),
           ),
-
-          const SizedBox(height: 10),
-
-          Card(
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            child: ListTile(
-              leading: const Icon(Icons.warning, color: Colors.orange),
-              title: const Text("الهجمات المكتشفة"),
-              trailing: Text(
-                "${_attacks.length}",
-                style: const TextStyle(fontSize: 20),
-              ),
-            ),
-          ),
-
-          buildGraph(),
-
-          const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Text(
-              "آخر الهجمات",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-
-          Expanded(
-            child: ListView.builder(
-              itemCount: _attacks.length,
-              itemBuilder: (_, i) {
-                final a = _attacks[i];
-
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  child: ListTile(
-                    leading: const Icon(Icons.warning, color: Colors.orange),
-                    title: Text(a["type"]),
-                    subtitle: Text(a["ssid"]),
-                  ),
-                );
-              },
-            ),
-          ),
+          SizedBox(height: 200, child: graph()),
         ],
       ),
     );
