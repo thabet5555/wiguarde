@@ -25,7 +25,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   void initState() {
     super.initState();
 
-    BLEManager.setListener((msg) {
+    BLEManager.setListener((data) {
+      final msg = data["msg"]?.toString() ?? "";
+
       setState(() {
         if (msg.contains("DEAUTH")) stats["Deauth"] = stats["Deauth"]! + 1;
         else if (msg.contains("BEACON")) stats["Beacon"] = stats["Beacon"]! + 1;
@@ -40,24 +42,17 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     });
   }
 
-  Widget buildItem(String name, int value) {
-    return ListTile(
-      title: Text(name),
-      trailing: Text(
-        value.toString(),
-        style: const TextStyle(fontSize: 18),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Statistics")),
       body: ListView(
-        children: stats.entries
-            .map((e) => buildItem(e.key, e.value))
-            .toList(),
+        children: stats.entries.map((e) {
+          return ListTile(
+            title: Text(e.key),
+            trailing: Text(e.value.toString()),
+          );
+        }).toList(),
       ),
     );
   }
