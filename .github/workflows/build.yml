@@ -14,10 +14,8 @@ jobs:
         with:
           flutter-version: '3.22.1'
 
-      # إنشاء android تلقائي
       - run: flutter create .
 
-      # إضافة أذونات البلوتوث تلقائي
       - run: |
           sed -i '/<manifest/a\
           <uses-permission android:name="android.permission.BLUETOOTH"/>\
@@ -26,13 +24,10 @@ jobs:
           <uses-permission android:name="android.permission.BLUETOOTH_SCAN"/>\
           <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>' android/app/src/main/AndroidManifest.xml
 
-      # تحميل المكتبات
       - run: flutter pub get
 
-      # بناء التطبيق
       - run: flutter build apk --release
 
-      # رفع APK
       - uses: actions/upload-artifact@v4
         with:
           name: app-release
