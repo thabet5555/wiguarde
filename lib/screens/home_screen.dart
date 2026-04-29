@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '../ble_manager.dart';
 
@@ -10,59 +9,32 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool running = false;
-
-  String currentNetwork = "لم يتم الاختيار";
   List<String> networks = [];
-  List<String> logs = [];
+  String selected = "اختيار الشبكة";
 
   @override
   void initState() {
     super.initState();
 
-    BLEManager.setListener((data) {
-      if (data["cmd"] == "RAW") {
-        final msg = data["msg"].toString();
+    BLEManager.setListener((text) {
+      // 🔥 بداية السكان
+      if (text.contains("Networks found")) {
+        setState(() => networks.clear());
+        return;
+      }
 
-        // بداية سكان
-        if (msg.contains("Networks found")) {
-          setState(() => networks.clear());
-          return;
-        }
+      // 🔥 كل شبكة
+      if (RegExp(r'^\d+:').hasMatch(text)) {
+        final name = text.split(":")[1].split("(")[0].trim();
 
-        // استقبال كل شبكة (سطر سطر)
-        if (RegExp(r'^\d+:').hasMatch(msg)) {
-          final name = msg.split(":")[1].trim().split(" (")[0];
-
-          setState(() {
-            networks.add(name);
-          });
-          return;
-        }
-
-        // باقي الرسائل
         setState(() {
-          logs.insert(0, msg);
+          networks.add(name);
         });
       }
     });
   }
 
-  void startStop() {
-    if (!BLEManager.isConnected) return;
-
-    setState(() => running = !running);
-
-    if (running) {
-      BLEManager.send("monitor");
-    } else {
-      BLEManager.send("stop");
-    }
-  }
-
-  void showNetworks() {
-    if (!BLEManager.isConnected) return;
-
+  void scan() {
     networks.clear();
     BLEManager.send("scan");
 
@@ -77,9 +49,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   return ListTile(
                     title: Text(networks[i]),
                     onTap: () {
-                      currentNetwork = networks[i];
                       BLEManager.send("select ${i + 1}");
-                      setState(() {});
+
+                      setState(() {
+                        selected = networks[i];
+                      });
+
                       Navigator.pop(context);
                     },
                   );
@@ -89,48 +64,41 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void start() => BLEManager.send("monitor");
+  void stop() => BLEManager.send("stop");
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Home")),
+      appBar: AppBar(title: const Text("ESP Controller")),
       body: Column(
         children: [
+          const SizedBox(height: 20),
+
+          Text(BLEManager.isConnected ? "🟢 متصل" : "🔴 غير متصل"),
+
           const SizedBox(height: 10),
 
-          Text(
-            BLEManager.isConnected ? "🟢 متصل" : "🔴 غير متصل",
+          ElevatedButton(
+            onPressed: scan,
+            child: Text(selected),
           ),
-
-          const SizedBox(height: 10),
 
           Row(
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: startStop,
-                  child: Text(running ? "إيقاف" : "تشغيل"),
+                  onPressed: start,
+                  child: const Text("تشغيل"),
                 ),
               ),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: showNetworks,
-                  child: Text(currentNetwork),
+                  onPressed: stop,
+                  child: const Text("إيقاف"),
                 ),
               ),
             ],
-          ),
-
-          const SizedBox(height: 10),
-
-          Expanded(
-            child: ListView.builder(
-              itemCount: logs.length,
-              itemBuilder: (_, i) {
-                return ListTile(
-                  title: Text(logs[i]),
-                );
-              },
-            ),
           ),
         ],
       ),
