@@ -14,10 +14,11 @@ class BLEManager {
 
   static Function(Map<String, dynamic>)? _listener;
 
-  static const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
-  static const COMMAND_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
-  static const STATUS_UUID  = "beb5483f-36e1-4688-b7f5-ea07361b26a8";
-  static const ALERT_UUID   = "beb54840-36e1-4688-b7f5-ea07361b26a8";
+  // ⚠️ UUID الخاص بك من ESP (UART)
+  static const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+  static const COMMAND_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // RX
+  static const STATUS_UUID  = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // TX
+  static const ALERT_UUID   = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
   static bool get isConnected =>
       _device != null && _cmdChar != null;
@@ -40,8 +41,10 @@ class BLEManager {
           final u = c.uuid.toString().toLowerCase();
 
           if (u == COMMAND_UUID) _cmdChar = c;
-          if (u == STATUS_UUID)  _statusChar = c;
-          if (u == ALERT_UUID)   _alertChar = c;
+          if (u == STATUS_UUID) {
+            _statusChar = c;
+            _alertChar = c; // نفس TX
+          }
         }
       }
     }
@@ -50,25 +53,12 @@ class BLEManager {
   }
 
   static Future<void> _startNotify() async {
-    // STATUS
     if (_statusChar != null) {
       try {
         await _statusChar!.setNotifyValue(true);
         await _statusSub?.cancel();
 
         _statusSub = _statusChar!.lastValueStream.listen((value) {
-          _handleIncoming(value);
-        });
-      } catch (_) {}
-    }
-
-    // ALERT
-    if (_alertChar != null) {
-      try {
-        await _alertChar!.setNotifyValue(true);
-        await _alertSub?.cancel();
-
-        _alertSub = _alertChar!.lastValueStream.listen((value) {
           _handleIncoming(value);
         });
       } catch (_) {}
@@ -81,17 +71,34 @@ class BLEManager {
     try {
       final text = utf8.decode(value);
 
-      try {
-        final data = jsonDecode(text);
-        if (data is Map<String, dynamic>) {
-          _listener?.call(data);
+      // 🔥 تحويل نتائج scan إلى قائمة
+      if (text.contains("Networks found")) {
+        final lines = text.split("\n");
+        final list = <String>[];
+
+        for (var l in lines) {
+          if (l.contains(":")) {
+            final parts = l.split(":");
+            if (parts.length > 1) {
+              final name = parts[1].split("(")[0].trim();
+              if (name.isNotEmpty) list.add(name);
+            }
+          }
         }
-      } catch (_) {
+
         _listener?.call({
-          "cmd": "RAW",
-          "msg": text,
+          "cmd": "WIFI_LIST",
+          "list": list,
         });
+        return;
       }
+
+      // 🔥 أي نص = Alert / Status
+      _listener?.call({
+        "cmd": "RAW",
+        "msg": text,
+      });
+
     } catch (_) {}
   }
 
@@ -99,12 +106,19 @@ class BLEManager {
     _listener = listener;
   }
 
-  static Future<void> send(String cmd) async {
+  // 🔥 إرسال أوامر ESP
+  static Future<void> send(String cmd, [Map<String, dynamic>? data]) async {
     if (_cmdChar == null) return;
 
     try {
+      String message = cmd;
+
+      if (data != null) {
+        message += " " + jsonEncode(data);
+      }
+
       await _cmdChar!.write(
-        utf8.encode(cmd),
+        utf8.encode(message),
         withoutResponse: true,
       );
     } catch (_) {}
