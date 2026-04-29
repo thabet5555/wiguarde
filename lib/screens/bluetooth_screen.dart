@@ -23,13 +23,11 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   }
 
   Future<void> init() async {
-    // طلب الأذونات
     await Permission.locationWhenInUse.request();
     await Permission.bluetoothScan.request();
     await Permission.bluetoothConnect.request();
 
     await Future.delayed(const Duration(seconds: 1));
-
     startScan();
   }
 
@@ -38,15 +36,22 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
 
     await FlutterBluePlus.stopScan();
 
+    FlutterBluePlus.scanResults.listen((results) {
+      if (!mounted) return;
+
+      // 🔥 فلترة الأجهزة (اسم ESP فقط)
+      final filtered = results.where((r) {
+        final name = r.device.platformName.toLowerCase();
+        return name.contains("esp32");
+      }).toList();
+
+      setState(() => devices = filtered);
+    });
+
     await FlutterBluePlus.startScan(
       timeout: const Duration(seconds: 10),
       androidUsesFineLocation: true,
     );
-
-    FlutterBluePlus.scanResults.listen((results) {
-      if (!mounted) return;
-      setState(() => devices = results);
-    });
 
     await Future.delayed(const Duration(seconds: 10));
     if (mounted) setState(() => isScanning = false);
@@ -62,7 +67,6 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
 
       for (var s in services) {
         for (var c in s.characteristics) {
-          // 🔥 اختيار أي characteristic يدعم الإرسال
           if (c.properties.write || c.properties.writeWithoutResponse) {
             writeChar = c;
           }
@@ -105,22 +109,27 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
       body: isScanning
           ? const Center(child: CircularProgressIndicator())
           : devices.isEmpty
-              ? const Center(child: Text("شغل الموقع والبلوتوث"))
+              ? const Center(child: Text("لا يوجد أجهزة ESP"))
               : ListView.builder(
                   itemCount: devices.length,
                   itemBuilder: (_, i) {
                     final d = devices[i].device;
 
-                    return ListTile(
-                      title: Text(
-                        d.platformName.isEmpty
-                            ? "Unknown Device"
-                            : d.platformName,
-                      ),
-                      subtitle: Text(d.remoteId.str),
-                      trailing: ElevatedButton(
-                        onPressed: () => connect(d),
-                        child: const Text("Connect"),
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      child: ListTile(
+                        leading: const Icon(Icons.bluetooth),
+                        title: Text(
+                          d.platformName.isEmpty
+                              ? "ESP Device"
+                              : d.platformName,
+                        ),
+                        subtitle: Text(d.remoteId.str),
+                        trailing: ElevatedButton(
+                          onPressed: () => connect(d),
+                          child: const Text("Connect"),
+                        ),
                       ),
                     );
                   },
