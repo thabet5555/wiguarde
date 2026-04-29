@@ -7,79 +7,38 @@ class BLEManager {
   static BluetoothCharacteristic? _char;
 
   static StreamSubscription? _notifySub;
-
   static Function(Map<String, dynamic>)? _listener;
 
-  static bool get isConnected =>
-      _device != null && _char != null;
-
-  // 🔵 ربط الجهاز
-  static void setConnection(
-      BluetoothDevice d,
-      BluetoothCharacteristic c,
-      ) {
+  static Future<void> setConnection(
+    BluetoothDevice d,
+    BluetoothCharacteristic c,
+  ) async {
     _device = d;
     _char = c;
 
-    _startNotify();
+    try {
+      await d.connect();
+    } catch (_) {}
+
+    await _startNotify();
   }
 
-  // 🔔 تشغيل الاستقبال (مهم جدًا تحسينه)
   static Future<void> _startNotify() async {
     if (_char == null) return;
 
-    try {
-      await _char!.setNotifyValue(true);
+    await _char!.setNotifyValue(true);
 
-      await _notifySub?.cancel();
-
-      _notifySub = _char!.lastValueStream.listen((value) {
-        try {
-          final text = utf8.decode(value);
-
-          final data = jsonDecode(text);
-
-          if (data is Map<String, dynamic>) {
-            _listener?.call(data);
-          }
-        } catch (e) {
-          // تجاهل أي بيانات خاطئة
+    _notifySub = _char!.lastValueStream.listen((value) {
+      try {
+        final data = jsonDecode(utf8.decode(value));
+        if (data is Map<String, dynamic>) {
+          _listener?.call(data);
         }
-      });
-    } catch (_) {}
+      } catch (_) {}
+    });
   }
 
-  // 🎧 تسجيل مستمع البيانات
   static void setListener(Function(Map<String, dynamic>) listener) {
     _listener = listener;
-  }
-
-  // 📤 إرسال أمر
-  static Future<void> send(String cmd, [Map<String, dynamic>? data]) async {
-    if (_char == null) return;
-
-    final payload = {
-      "cmd": cmd,
-      if (data != null) ...data,
-    };
-
-    try {
-      await _char!.write(
-        utf8.encode(jsonEncode(payload)),
-        withoutResponse: true,
-      );
-    } catch (_) {}
-  }
-
-  // 🔌 قطع الاتصال
-  static Future<void> disconnect() async {
-    try {
-      await _notifySub?.cancel();
-      await _device?.disconnect();
-    } catch (_) {}
-
-    _device = null;
-    _char = null;
-    _listener = null;
   }
 }
