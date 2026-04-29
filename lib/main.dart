@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
-import 'ble_manager.dart';
 import 'screens/home_screen.dart';
 import 'screens/bluetooth_screen.dart';
+import 'screens/reports_screen.dart';
 import 'screens/attacks_screen.dart';
 import 'screens/statistics_screen.dart';
-import 'screens/reports_screen.dart';
 import 'screens/settings_screen.dart';
 import 'widgets/bottom_nav.dart';
 
@@ -40,24 +38,18 @@ class _AppState extends State<App> {
     await Permission.bluetoothConnect.request();
   }
 
-  // ✅ اتصال البلوتوث مضبوط
-  void onConnect(BluetoothDevice device, BluetoothCharacteristic char) async {
-    await BLEManager.setConnection(device, char);
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("✅ تم الاتصال بالجهاز")),
-    );
-
-    setState(() => index = 0);
-  }
-
   @override
   Widget build(BuildContext context) {
     final screens = [
       const HomeScreen(),
-      BluetoothScreen(onConnected: onConnect),
+
+      // ✅ تم تعديل البلوتوث هنا
+      BluetoothScreen(
+        onConnected: () {
+          setState(() => index = 0);
+        },
+      ),
+
       const ReportsScreen(),
       const AttacksScreen(),
       const StatisticsScreen(),
