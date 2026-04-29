@@ -3,7 +3,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../ble_manager.dart';
 
 class BluetoothScreen extends StatefulWidget {
-  final Function(BluetoothDevice, BluetoothCharacteristic) onConnected;
+  final Function() onConnected;
 
   const BluetoothScreen({super.key, required this.onConnected});
 
@@ -17,47 +17,26 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   @override
   void initState() {
     super.initState();
-    scan();
+    startScan();
   }
 
-  void scan() async {
-    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
+  Future<void> startScan() async {
+    devices.clear();
+
+    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 8));
 
     FlutterBluePlus.scanResults.listen((results) {
       setState(() {
-        // 🔥 نجيب جهازك فقط بالاسم أو MAC
-        devices = results.where((r) {
-          final name = r.device.platformName;
-          final mac = r.device.remoteId.str.toUpperCase();
-
-          return name == "ESP32_AttackDetector" ||
-              mac == "DO:CF:13:24:DA:19";
-        }).toList();
+        devices = results
+            .where((r) => r.device.platformName.contains("ESP32"))
+            .toList();
       });
     });
   }
 
-  void connect(BluetoothDevice d) async {
-    await BLEManager.connect(d);
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("✅ تم الاتصال بالـ ESP")),
-    );
-
-    widget.onConnected(
-      d,
-      d.characteristics.isNotEmpty
-          ? d.characteristics.first
-          : BluetoothCharacteristic(
-              remoteId: d.remoteId,
-              serviceUuid: Guid("0000"),
-              characteristicUuid: Guid("0000"),
-              descriptors: [],
-              properties: CharacteristicProperties(),
-            ),
-    );
+  Future<void> connect(BluetoothDevice d) async {
+    await BLEManager.setConnection(d);
+    widget.onConnected();
   }
 
   @override
@@ -68,16 +47,15 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: scan,
+            onPressed: startScan,
           )
         ],
       ),
       body: devices.isEmpty
-          ? const Center(child: Text("جاري البحث عن ESP..."))
-          : ListView.builder(
-              itemCount: devices.length,
-              itemBuilder: (_, i) {
-                final d = devices[i].device;
+          ? const Center(child: Text("شغل البلوتوث"))
+          : ListView(
+              children: devices.map((r) {
+                final d = r.device;
 
                 return ListTile(
                   title: Text(d.platformName),
@@ -87,7 +65,7 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
                     child: const Text("Connect"),
                   ),
                 );
-              },
+              }).toList(),
             ),
     );
   }
