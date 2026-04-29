@@ -19,14 +19,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _isRunning = false;
 
-  String currentNetwork = 'Network_123';
-
-  final List<String> networks = [
-    "Network_123",
-    "Network_456",
-    "Network_789",
-    "Free_WiFi"
-  ];
+  String currentNetwork = 'لم يتم الاختيار';
+  List<String> networks = [];
 
   final List<Map<String, dynamic>> _attacks = [];
   final List<TrafficPoint> _trafficData = [];
@@ -38,8 +32,20 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
 
-    // استقبال بيانات من ESP32
     BLEManager.setListener((data) {
+
+      // 🔥 استقبال قائمة الشبكات
+      if (data["cmd"] == "WIFI_LIST") {
+        final List list = data["list"] ?? [];
+
+        setState(() {
+          networks = list.map((e) => e.toString()).toList();
+        });
+
+        return;
+      }
+
+      // 🔥 استقبال الهجمات
       final attack = {
         "ssid": data["ssid"] ?? "ESP32",
         "desc": data["msg"] ?? data.toString(),
@@ -94,7 +100,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // 🔥 تشغيل الفحص (بعد التأكد من الاتصال)
   void _toggleRunning() {
     if (!BLEManager.isConnected) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -119,7 +124,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // 🔥 اختيار شبكة
   void _showNetworks() {
     if (!BLEManager.isConnected) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -128,26 +132,31 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    // 🔥 طلب الشبكات من ESP
+    BLEManager.send("GET_WIFI");
+
     showModalBottomSheet(
       context: context,
       builder: (_) {
-        return ListView(
-          children: networks.map((n) {
-            return ListTile(
-              leading: const Icon(Icons.wifi),
-              title: Text(n),
-              onTap: () {
-                setState(() {
-                  currentNetwork = n;
-                });
+        return networks.isEmpty
+            ? const Center(child: Text("جاري تحميل الشبكات..."))
+            : ListView(
+                children: networks.map((n) {
+                  return ListTile(
+                    leading: const Icon(Icons.wifi),
+                    title: Text(n),
+                    onTap: () {
+                      setState(() {
+                        currentNetwork = n;
+                      });
 
-                BLEManager.send("SELECT_WIFI", {"ssid": n});
+                      BLEManager.send("SELECT_WIFI", {"ssid": n});
 
-                Navigator.pop(context);
-              },
-            );
-          }).toList(),
-        );
+                      Navigator.pop(context);
+                    },
+                  );
+                }).toList(),
+              );
       },
     );
   }
