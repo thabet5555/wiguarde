@@ -14,7 +14,7 @@ class BluetoothScreen extends StatefulWidget {
 
 class _BluetoothScreenState extends State<BluetoothScreen> {
   List<ScanResult> devices = [];
-  bool isScanning = false;
+  bool scanning = false;
 
   @override
   void initState() {
@@ -32,58 +32,51 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   }
 
   Future<void> startScan() async {
-    setState(() => isScanning = true);
+    setState(() => scanning = true);
 
     await FlutterBluePlus.stopScan();
+
+    await FlutterBluePlus.startScan(
+      timeout: const Duration(seconds: 10),
+    );
 
     FlutterBluePlus.scanResults.listen((results) {
       if (!mounted) return;
 
-      // 🔥 فلترة الأجهزة (اسم ESP فقط)
-      final filtered = results.where((r) {
-        final name = r.device.platformName.toLowerCase();
-        return name.contains("esp32");
-      }).toList();
-
-      setState(() => devices = filtered);
+      setState(() {
+        // 🔥 فلترة الأجهزة اللي فيها اسم (ESP فقط)
+        devices = results
+            .where((r) => r.device.platformName.isNotEmpty)
+            .toList();
+      });
     });
 
-    await FlutterBluePlus.startScan(
-      timeout: const Duration(seconds: 10),
-      androidUsesFineLocation: true,
-    );
-
     await Future.delayed(const Duration(seconds: 10));
-    if (mounted) setState(() => isScanning = false);
+    if (mounted) setState(() => scanning = false);
   }
 
   Future<void> connect(BluetoothDevice d) async {
     try {
-      await d.connect(timeout: const Duration(seconds: 10));
+      await BLEManager.connect(d); // 🔥 الاتصال الصحيح
 
-      final services = await d.discoverServices();
+      if (!mounted) return;
 
-      BluetoothCharacteristic? writeChar;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("✅ تم الاتصال بـ ${d.platformName}")),
+      );
 
-      for (var s in services) {
-        for (var c in s.characteristics) {
-          if (c.properties.write || c.properties.writeWithoutResponse) {
-            writeChar = c;
-          }
-        }
-      }
-
-      if (writeChar != null) {
-        await BLEManager.setConnection(d, writeChar);
-        widget.onConnected(d, writeChar);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("❌ لم يتم العثور على قناة إرسال")),
-        );
-      }
+      widget.onConnected(d, d.characteristics.isNotEmpty
+          ? d.characteristics.first
+          : BluetoothCharacteristic(
+              remoteId: d.remoteId,
+              serviceUuid: Guid("0000"),
+              characteristicUuid: Guid("0000"),
+              descriptors: [],
+              properties: CharacteristicProperties(),
+            ));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("خطأ في الاتصال: $e")),
+        SnackBar(content: Text("❌ فشل الاتصال: $e")),
       );
     }
   }
@@ -106,30 +99,25 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
           )
         ],
       ),
-      body: isScanning
+      body: scanning
           ? const Center(child: CircularProgressIndicator())
           : devices.isEmpty
-              ? const Center(child: Text("لا يوجد أجهزة ESP"))
+              ? const Center(child: Text("شغل البلوتوث والموقع"))
               : ListView.builder(
                   itemCount: devices.length,
                   itemBuilder: (_, i) {
                     final d = devices[i].device;
 
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      child: ListTile(
-                        leading: const Icon(Icons.bluetooth),
-                        title: Text(
-                          d.platformName.isEmpty
-                              ? "ESP Device"
-                              : d.platformName,
-                        ),
-                        subtitle: Text(d.remoteId.str),
-                        trailing: ElevatedButton(
-                          onPressed: () => connect(d),
-                          child: const Text("Connect"),
-                        ),
+                    return ListTile(
+                      title: Text(
+                        d.platformName.isEmpty
+                            ? "Unknown Device"
+                            : d.platformName,
+                      ),
+                      subtitle: Text(d.remoteId.str),
+                      trailing: ElevatedButton(
+                        onPressed: () => connect(d),
+                        child: const Text("Connect"),
                       ),
                     );
                   },
