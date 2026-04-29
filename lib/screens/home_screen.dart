@@ -1,13 +1,6 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import '../ble_manager.dart';
-
-class TrafficPoint {
-  final double value;
-  TrafficPoint(this.value);
-}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,110 +10,60 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool _isRunning = false;
+  bool running = false;
 
-  String currentNetwork = 'لم يتم الاختيار';
+  String currentNetwork = "لم يتم الاختيار";
   List<String> networks = [];
-
-  final List<Map<String, dynamic>> _attacks = [];
-  final List<TrafficPoint> _trafficData = [];
-
-  Timer? _timer;
-  double _lastValue = 50;
+  List<String> logs = [];
 
   @override
   void initState() {
     super.initState();
 
     BLEManager.setListener((data) {
-      final msg = data["msg"] ?? "";
+      if (data["cmd"] == "RAW") {
+        final msg = data["msg"].toString();
 
-      // استقبال الشبكات من ESP
-      if (msg.contains("Networks found")) {
-        final lines = msg.split("\n");
-
-        List<String> list = [];
-
-        for (var l in lines) {
-          if (l.contains(":")) {
-            final name = l.split(":")[1].split("(")[0].trim();
-            list.add(name);
-          }
+        // بداية سكان
+        if (msg.contains("Networks found")) {
+          setState(() => networks.clear());
+          return;
         }
 
+        // استقبال كل شبكة (سطر سطر)
+        if (RegExp(r'^\d+:').hasMatch(msg)) {
+          final name = msg.split(":")[1].trim().split(" (")[0];
+
+          setState(() {
+            networks.add(name);
+          });
+          return;
+        }
+
+        // باقي الرسائل
         setState(() {
-          networks = list;
+          logs.insert(0, msg);
         });
-
-        return;
       }
-
-      // استقبال الهجمات
-      setState(() {
-        _attacks.insert(0, {
-          "type": "ATTACK",
-          "ssid": currentNetwork,
-          "desc": msg,
-          "risk": 80,
-        });
-      });
-
-      _showAlert(msg);
     });
   }
 
-  void _showAlert(String msg) {
-    if (!mounted) return;
+  void startStop() {
+    if (!BLEManager.isConnected) return;
 
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("🚨 تنبيه"),
-        content: Text(msg),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("إغلاق"),
-          ),
-        ],
-      ),
-    );
-  }
+    setState(() => running = !running);
 
-  void _generateTraffic() {
-    final rand = Random();
-    double change = rand.nextDouble() * 20 - 10;
-    double newValue = (_lastValue + change).clamp(0, 100);
-    _lastValue = newValue;
-
-    setState(() {
-      _trafficData.add(TrafficPoint(newValue));
-      if (_trafficData.length > 30) _trafficData.removeAt(0);
-    });
-  }
-
-  void _toggleRunning() {
-    if (!BLEManager.isConnected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("❌ غير متصل")),
-      );
-      return;
-    }
-
-    setState(() => _isRunning = !_isRunning);
-
-    if (_isRunning) {
+    if (running) {
       BLEManager.send("monitor");
-      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-        _generateTraffic();
-      });
     } else {
       BLEManager.send("stop");
-      _timer?.cancel();
     }
   }
 
-  void _showNetworks() {
+  void showNetworks() {
+    if (!BLEManager.isConnected) return;
+
+    networks.clear();
     BLEManager.send("scan");
 
     showModalBottomSheet(
@@ -146,77 +89,49 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget buildGraph() {
-    return SizedBox(
-      height: 200,
-      child: LineChart(
-        LineChartData(
-          gridData: const FlGridData(show: false),
-          borderData: FlBorderData(show: false),
-          titlesData: const FlTitlesData(show: false),
-          lineBarsData: [
-            LineChartBarData(
-              isCurved: true,
-              color: Colors.blue,
-              barWidth: 3,
-              dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(show: true),
-              spots: List.generate(
-                _trafficData.length,
-                (i) => FlSpot(i.toDouble(), _trafficData[i].value),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("الرئيسية")),
+      appBar: AppBar(title: const Text("Home")),
       body: Column(
         children: [
-          Text(BLEManager.isConnected ? "🟢 متصل" : "🔴 غير متصل"),
+          const SizedBox(height: 10),
+
+          Text(
+            BLEManager.isConnected ? "🟢 متصل" : "🔴 غير متصل",
+          ),
+
+          const SizedBox(height: 10),
 
           Row(
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: _toggleRunning,
-                  child: Text(_isRunning ? "إيقاف" : "تشغيل"),
+                  onPressed: startStop,
+                  child: Text(running ? "إيقاف" : "تشغيل"),
                 ),
               ),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: _showNetworks,
+                  onPressed: showNetworks,
                   child: Text(currentNetwork),
                 ),
               ),
             ],
           ),
 
-          buildGraph(),
+          const SizedBox(height: 10),
 
           Expanded(
             child: ListView.builder(
-              itemCount: _attacks.length,
+              itemCount: logs.length,
               itemBuilder: (_, i) {
-                final a = _attacks[i];
                 return ListTile(
-                  title: Text(a["desc"]),
-                  subtitle: Text(a["ssid"]),
+                  title: Text(logs[i]),
                 );
               },
             ),
-          )
+          ),
         ],
       ),
     );
