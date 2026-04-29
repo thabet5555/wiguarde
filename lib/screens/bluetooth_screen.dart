@@ -17,39 +17,68 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   @override
   void initState() {
     super.initState();
-    FlutterBluePlus.startScan();
+    startScan();
+  }
+
+  Future<void> startScan() async {
+    await FlutterBluePlus.stopScan();
+    await FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
+
     FlutterBluePlus.scanResults.listen((r) {
       setState(() => devices = r);
     });
   }
 
   Future<void> connect(BluetoothDevice d) async {
-    await d.connect();
+    try {
+      await d.connect(timeout: const Duration(seconds: 10));
 
-    final services = await d.discoverServices();
+      final services = await d.discoverServices();
 
-    for (var s in services) {
-      for (var c in s.characteristics) {
-        if (c.properties.write) {
-          BLEManager.setConnection(d, c);
-          widget.onConnected(d, c);
-          return;
+      for (var s in services) {
+        for (var c in s.characteristics) {
+          if (c.properties.write) {
+            BLEManager.setConnection(d, c);
+            widget.onConnected(d, c);
+            return;
+          }
         }
       }
+    } catch (e) {
+      debugPrint("Connection error: $e");
     }
+  }
+
+  @override
+  void dispose() {
+    FlutterBluePlus.stopScan();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Bluetooth")),
-      body: ListView.builder(
+      appBar: AppBar(
+        title: const Text("Bluetooth"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: startScan,
+          )
+        ],
+      ),
+      body: devices.isEmpty
+          ? const Center(child: Text("No devices found"))
+          : ListView.builder(
         itemCount: devices.length,
         itemBuilder: (_, i) {
           final d = devices[i].device;
 
           return ListTile(
-            title: Text(d.platformName.isEmpty ? "Unknown" : d.platformName),
+            title: Text(
+              d.platformName.isEmpty ? "Unknown Device" : d.platformName,
+            ),
+            subtitle: Text(d.remoteId.str),
             trailing: ElevatedButton(
               onPressed: () => connect(d),
               child: const Text("Connect"),
