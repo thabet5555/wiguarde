@@ -24,9 +24,6 @@ class App extends StatefulWidget {
 class _AppState extends State<App> {
   int index = 0;
 
-  final Color primary = const Color(0xFF1E88E5);
-  final Color background = const Color(0xFF0F172A);
-
   @override
   void initState() {
     super.initState();
@@ -42,8 +39,8 @@ class _AppState extends State<App> {
     ].request();
   }
 
-  void onConnect(device, char) {
-    BLEManager.setConnection(device, char);
+  void onConnect(device, char) async {
+    await BLEManager.setConnection(device, char);
     setState(() => index = 0);
   }
 
@@ -60,17 +57,6 @@ class _AppState extends State<App> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.dark(
-          primary: primary,
-          secondary: const Color(0xFF2ECC71),
-          error: const Color(0xFFE74C3C),
-          surface: background,
-        ),
-        scaffoldBackgroundColor: background,
-      ),
       home: Scaffold(
         body: SafeArea(child: screens[index]),
         bottomNavigationBar: BottomNav(
