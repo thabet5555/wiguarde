@@ -10,22 +10,22 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<String> networks = [];
-  String selected = "اختيار الشبكة";
 
   @override
   void initState() {
     super.initState();
 
-    BLEManager.setListener((text) {
-      // 🔥 بداية السكان
-      if (text.contains("Networks found")) {
-        setState(() => networks.clear());
+    BLEManager.setListener((line) {
+      if (!mounted) return;
+
+      if (line.contains("Networks found")) {
+        networks.clear();
+        setState(() {});
         return;
       }
 
-      // 🔥 كل شبكة
-      if (RegExp(r'^\d+:').hasMatch(text)) {
-        final name = text.split(":")[1].split("(")[0].trim();
+      if (RegExp(r'^\d+:').hasMatch(line)) {
+        final name = line.split(":")[1].split("(")[0].trim();
 
         setState(() {
           networks.add(name);
@@ -36,32 +36,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void scan() {
     networks.clear();
+    setState(() {});
+
     BLEManager.send("scan");
 
-    showModalBottomSheet(
-      context: context,
-      builder: (_) {
-        return networks.isEmpty
-            ? const Center(child: Text("جاري البحث..."))
-            : ListView.builder(
-                itemCount: networks.length,
-                itemBuilder: (_, i) {
-                  return ListTile(
-                    title: Text(networks[i]),
-                    onTap: () {
-                      BLEManager.send("select ${i + 1}");
-
-                      setState(() {
-                        selected = networks[i];
-                      });
-
-                      Navigator.pop(context);
-                    },
-                  );
-                },
-              );
-      },
-    );
+    Future.delayed(const Duration(seconds: 2), () {
+      showModalBottomSheet(
+        context: context,
+        builder: (_) {
+          return networks.isEmpty
+              ? const Center(child: Text("لا توجد شبكات"))
+              : ListView.builder(
+                  itemCount: networks.length,
+                  itemBuilder: (_, i) {
+                    return ListTile(
+                      title: Text(networks[i]),
+                      onTap: () {
+                        BLEManager.send("select ${i + 1}");
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                );
+        },
+      );
+    });
   }
 
   void start() => BLEManager.send("monitor");
@@ -75,13 +74,9 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           const SizedBox(height: 20),
 
-          Text(BLEManager.isConnected ? "🟢 متصل" : "🔴 غير متصل"),
-
-          const SizedBox(height: 10),
-
           ElevatedButton(
             onPressed: scan,
-            child: Text(selected),
+            child: const Text("Scan Networks"),
           ),
 
           Row(
@@ -89,13 +84,13 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: ElevatedButton(
                   onPressed: start,
-                  child: const Text("تشغيل"),
+                  child: const Text("Start"),
                 ),
               ),
               Expanded(
                 child: ElevatedButton(
                   onPressed: stop,
-                  child: const Text("إيقاف"),
+                  child: const Text("Stop"),
                 ),
               ),
             ],
