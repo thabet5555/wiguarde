@@ -1,145 +1,64 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
+import '../ble_manager.dart';
 
-class StatisticsScreen extends StatelessWidget {
+class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
 
   @override
+  State<StatisticsScreen> createState() => _StatisticsScreenState();
+}
+
+class _StatisticsScreenState extends State<StatisticsScreen> {
+  String status = "";
+  String network = "";
+  String channel = "";
+
+  @override
+  void initState() {
+    super.initState();
+
+    BLEManager.setListener((data) {
+      if (data["cmd"] == "RAW") {
+        final msg = data["msg"].toString();
+
+        if (msg.contains("Status")) {
+          final lines = msg.split("\n");
+
+          setState(() {
+            status = lines.length > 1 ? lines[1] : "";
+            network = lines.length > 2 ? lines[2] : "";
+            channel = lines.length > 3 ? lines[3] : "";
+          });
+        }
+      }
+    });
+  }
+
+  void loadStatus() {
+    if (!BLEManager.isConnected) return;
+    BLEManager.send("status");
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final attacks = [
-      "Deauth",
-      "Fake AP",
-      "Sniff",
-      "MAC Spoof",
-      "Evil Twin",
-      "ARP",
-      "Flood",
-      "Probe",
-    ];
-
-    final values = [8, 5, 6, 4, 7, 3, 2, 6];
-
-    final colors = [
-      Colors.red,
-      Colors.orange,
-      Colors.blue,
-      Colors.purple,
-      Colors.green,
-      Colors.teal,
-      Colors.brown,
-      Colors.indigo,
-    ];
-
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text("الإحصائيات"),
-          centerTitle: true,
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  "يعرض هذا القسم تحليل الهجمات المكتشفة من الشبكة باستخدام النظام.",
-                  style: TextStyle(fontSize: 13),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              Expanded(
-                child: BarChart(
-                  BarChartData(
-                    maxY: 10,
-                    gridData: const FlGridData(show: true),
-                    borderData: FlBorderData(show: false),
-
-                    titlesData: FlTitlesData(
-                      rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          interval: 2,
-                          reservedSize: 28,
-                          getTitlesWidget: (value, meta) {
-                            return Text(
-                              value.toInt().toString(),
-                              style: const TextStyle(fontSize: 10),
-                            );
-                          },
-                        ),
-                      ),
-
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 42,
-                          getTitlesWidget: (value, meta) {
-                            final index = value.toInt();
-
-                            if (index < 0 || index >= attacks.length) {
-                              return const SizedBox();
-                            }
-
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Text(
-                                attacks[index],
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 9),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-
-                    barGroups: List.generate(attacks.length, (i) {
-                      return BarChartGroupData(
-                        x: i,
-                        barRods: [
-                          BarChartRodData(
-                            toY: values[i].toDouble(),
-                            width: 14,
-                            color: colors[i],
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ],
-                      );
-                    }),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  "كل عمود يمثل عدد الهجمات المكتشفة لكل نوع من أنواع الهجمات.",
-                  style: TextStyle(fontSize: 13),
-                ),
-              ),
-            ],
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Statistics"),
+        actions: [
+          IconButton(
+            onPressed: loadStatus,
+            icon: const Icon(Icons.refresh),
+          )
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            ListTile(title: const Text("Status"), subtitle: Text(status)),
+            ListTile(title: const Text("Network"), subtitle: Text(network)),
+            ListTile(title: const Text("Channel"), subtitle: Text(channel)),
+          ],
         ),
       ),
     );
