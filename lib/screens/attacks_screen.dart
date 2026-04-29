@@ -15,10 +15,14 @@ class _AttacksScreenState extends State<AttacksScreen> {
   void initState() {
     super.initState();
 
-    BLEManager.setListener((msg) {
-      setState(() {
-        attacks.insert(0, msg);
-      });
+    BLEManager.setListener((data) {
+      final msg = data["msg"]?.toString() ?? "";
+
+      if (msg.isNotEmpty) {
+        setState(() {
+          attacks.insert(0, msg);
+        });
+      }
     });
   }
 
@@ -30,7 +34,6 @@ class _AttacksScreenState extends State<AttacksScreen> {
         itemCount: attacks.length,
         itemBuilder: (_, i) {
           return ListTile(
-            leading: const Icon(Icons.warning, color: Colors.orange),
             title: Text(attacks[i]),
           );
         },
