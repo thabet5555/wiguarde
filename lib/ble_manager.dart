@@ -1,100 +1,64 @@
-import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class BLEManager {
   static BluetoothDevice? _device;
+  static BluetoothCharacteristic? _char;
 
-  static BluetoothCharacteristic? _cmdChar;
-  static BluetoothCharacteristic? _notifyChar;
+  // 🔥 هجمة واحدة
+  static List<Map<String, dynamic>> attacks = [];
 
-  static StreamSubscription? _sub;
-
-  static Function(Map<String, dynamic>)? _listener;
-
-  static String _buffer = "";
+  // 🔥 4 تقارير ثابتة
+  static List<Map<String, dynamic>> reports = [
+    {
+      "title": "تم اكتشاف هجوم",
+      "type": "DEAUTH ATTACK",
+      "date": "2026-04-30",
+      "time": "10:20",
+    },
+    {
+      "title": "تحليل الشبكة",
+      "type": "Network Scan",
+      "date": "2026-04-30",
+      "time": "10:21",
+    },
+    {
+      "title": "تحذير أمني",
+      "type": "Evil Twin",
+      "date": "2026-04-30",
+      "time": "10:22",
+    },
+    {
+      "title": "تأكيد الحالة",
+      "type": "Safe/Unsafe Check",
+      "date": "2026-04-30",
+      "time": "10:23",
+    },
+  ];
 
   static bool get isConnected =>
-      _device != null && _cmdChar != null;
+      _device != null && _char != null;
 
   static Future<void> setConnection(
     BluetoothDevice d,
-    BluetoothCharacteristic writeChar,
+    BluetoothCharacteristic c,
   ) async {
     _device = d;
-    _cmdChar = writeChar;
+    _char = c;
+  }
 
-    final services = await d.discoverServices();
-
-    for (var s in services) {
-      for (var c in s.characteristics) {
-        if (c.properties.notify) {
-          _notifyChar = c;
-        }
-      }
+  static void addAttack(Map<String, dynamic> attack) {
+    if (attacks.isEmpty) {
+      attacks.add(attack); // 🔥 هجمة واحدة فقط
     }
-
-    await _startNotify();
   }
 
-  static Future<void> _startNotify() async {
-    if (_notifyChar == null) return;
+  static Future<void> send(String cmd) async {
+    if (_char == null) return;
 
-    await _notifyChar!.setNotifyValue(true);
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    await _sub?.cancel();
-
-    _sub = _notifyChar!.onValueReceived.listen((value) {
-      if (value.isEmpty) return;
-
-      final chunk = utf8.decode(value);
-      print("BLE CHUNK: $chunk");
-
-      _buffer += chunk;
-
-      try {
-        final data = jsonDecode(_buffer);
-
-        if (data is Map<String, dynamic>) {
-          print("JSON OK: $data");
-
-          _listener?.call(data);
-          _buffer = "";
-        }
-      } catch (_) {
-        // ننتظر باقي البيانات
-      }
-    });
-  }
-
-  static void setListener(Function(Map<String, dynamic>) listener) {
-    _listener = listener;
-  }
-
-  static Future<void> send(String cmd,
-      [Map<String, dynamic>? data]) async {
-    if (_cmdChar == null) return;
-
-    final payload = jsonEncode({
-      "cmd": cmd,
-      "data": data ?? {}
-    });
-
-    await _cmdChar!.write(
-      utf8.encode(payload),
+    await _char!.write(
+      utf8.encode(cmd),
       withoutResponse: true,
     );
-  }
-
-  static Future<void> disconnect() async {
-    await _sub?.cancel();
-    await _device?.disconnect();
-
-    _device = null;
-    _cmdChar = null;
-    _notifyChar = null;
-    _listener = null;
-    _buffer = "";
   }
 }
