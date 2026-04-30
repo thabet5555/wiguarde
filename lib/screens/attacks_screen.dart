@@ -1,40 +1,30 @@
 import 'package:flutter/material.dart';
 import '../ble_manager.dart';
 
-class AttacksScreen extends StatefulWidget {
+class AttacksScreen extends StatelessWidget {
   const AttacksScreen({super.key});
 
   @override
-  State<AttacksScreen> createState() => _AttacksScreenState();
-}
-
-class _AttacksScreenState extends State<AttacksScreen> {
-  List<String> attacks = [];
-
-  @override
-  void initState() {
-    super.initState();
-
-    BLEManager.setListener((data) {
-      final msg = data["msg"]?.toString() ?? "";
-
-      if (msg.isNotEmpty) {
-        setState(() {
-          attacks.insert(0, msg);
-        });
-      }
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final attacks = BLEManager.attacks;
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Attacks")),
+      backgroundColor: const Color(0xFF0B1A2A),
+      appBar: AppBar(title: const Text("الهجمات")),
       body: ListView.builder(
         itemCount: attacks.length,
         itemBuilder: (_, i) {
+          final a = attacks[i];
+
           return ListTile(
-            title: Text(attacks[i]),
+            title: Text(
+              a["type"],
+              style: const TextStyle(color: Colors.white),
+            ),
+            subtitle: Text(
+              "${a["ssid"]} - ${a["date"]} ${a["time"]}",
+              style: const TextStyle(color: Colors.white70),
+            ),
           );
         },
       ),
