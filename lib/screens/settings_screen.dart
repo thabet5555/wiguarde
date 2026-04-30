@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../ble_manager.dart';
 
@@ -9,17 +10,69 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  bool notifications = true;
+  bool protection = true;
+  bool autoScan = false;
 
-  void send(String cmd) {
-    BLEManager.send(cmd);
+  Widget _divider() {
+    return const SizedBox(height: 12);
   }
 
-  Widget btn(String title, String cmd) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: ElevatedButton(
-        onPressed: () => send(cmd),
-        child: Text(title),
+  // 🔥 إصلاح الإرسال
+  void _sendCommand(String cmd, bool value) {
+    final jsonCmd = jsonEncode({
+      "cmd": cmd,
+      "value": value,
+    });
+
+    BLEManager.send(jsonCmd);
+  }
+
+  Widget buildCard({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required Function(bool) onChanged,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E2E),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black45,
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: SwitchListTile(
+        activeColor: color,
+        inactiveThumbColor: Colors.grey,
+        title: Row(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 10),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(color: Colors.white70),
+        ),
+        value: value,
+        onChanged: (v) {
+          onChanged(v);
+        },
       ),
     );
   }
@@ -27,34 +80,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("الإعدادات")),
+      backgroundColor: const Color(0xFF0F0F1A),
+
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1E1E2E),
+        title: const Text(
+          'إعدادات النظام',
+          style: TextStyle(color: Colors.white),
+        ),
+        centerTitle: true,
+      ),
+
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
 
-          btn("📡 فحص الشبكات", "scan"),
-          btn("🎯 اختيار الشبكة 1", "select 1"),
-          btn("🎯 اختيار الشبكة 2", "select 2"),
+          buildCard(
+            title: "الإشعارات",
+            subtitle: "تنبيهات فورية عند اكتشاف تهديد",
+            value: notifications,
+            icon: Icons.notifications,
+            color: Colors.blue,
+            onChanged: (v) {
+              setState(() => notifications = v);
+              _sendCommand("NOTIFICATIONS", v);
+            },
+          ),
 
-          const Divider(),
+          buildCard(
+            title: "وضع الحماية",
+            subtitle: "تشغيل نظام الحماية الذكي",
+            value: protection,
+            icon: Icons.shield,
+            color: Colors.green,
+            onChanged: (v) {
+              setState(() => protection = v);
+              _sendCommand("PROTECTION", v);
+            },
+          ),
 
-          btn("▶️ بدء المراقبة", "monitor"),
-          btn("⛔ إيقاف", "stop"),
+          buildCard(
+            title: "الفحص التلقائي",
+            subtitle: "تشغيل الفحص بدون تدخل",
+            value: autoScan,
+            icon: Icons.radar,
+            color: Colors.orange,
+            onChanged: (v) {
+              setState(() => autoScan = v);
+              _sendCommand("AUTO_SCAN", v);
+            },
+          ),
 
-          const Divider(),
+          const SizedBox(height: 10),
 
-          btn("⚙️ عرض الإعدادات", "settings"),
-          btn("📊 الحالة", "status"),
-          btn("📜 السجل", "history"),
-
-          const Divider(),
-
-          btn("⬅️ رجوع", "back"),
-
-          const Divider(),
-
-          btn("🔥 Deauth = 10", "threshold deauth 10"),
-          btn("🔥 Beacon = 30", "threshold beacon 30"),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E2E),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const ListTile(
+              leading: Icon(Icons.info, color: Colors.blue),
+              title: Text(
+                'عن التطبيق',
+                style: TextStyle(color: Colors.white),
+              ),
+              subtitle: Text(
+                'نظام كشف هجمات الواي فاي باستخدام ESP32-S3',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+          ),
         ],
       ),
     );
