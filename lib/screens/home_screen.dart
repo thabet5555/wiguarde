@@ -1,13 +1,5 @@
-import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import '../ble_manager.dart';
-
-class TrafficPoint {
-  final double value;
-  TrafficPoint(this.value);
-}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,144 +9,136 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool _isRunning = false;
-
   String currentNetwork = 'لم يتم الاختيار';
-  List<String> networks = [];
 
-  final List<Map<String, dynamic>> _attacks = [];
-  final List<TrafficPoint> _trafficData = [];
+  final networks = [
+    "Redmi",
+    "AL-SAREE-NET-774640555",
+    "AL-SAREE-NET(139)774640555",
+    "AL-SAREE-NET(252)774640555",
+  ];
 
-  Timer? _timer;
-  double _lastValue = 50;
-
-  @override
-  void initState() {
-    super.initState();
-
-    BLEManager.setListener((data) {
-      print("APP JSON: $data");
-
-      // 📡 الشبكات
-      if (data["cmd"] == "WIFI_LIST") {
-        final List list = data["list"] ?? [];
-
-        setState(() {
-          networks = list.map((e) => e.toString()).toList();
-        });
-
-        return;
-      }
-
-      // 🚨 الهجمات
-      final attack = {
-        "ssid": data["ssid"] ?? "ESP32",
-        "desc": data["msg"] ?? "",
-        "type": data["cmd"] ?? "UNKNOWN",
-        "risk": int.tryParse(data["risk"].toString()) ?? 50,
-        "time": TimeOfDay.now().format(context),
-        "date": DateTime.now().toString().substring(0, 10),
-      };
-
-      setState(() {
-        _attacks.insert(0, attack);
-      });
-    });
-  }
-
-  void _toggleRunning() {
-    if (!BLEManager.isConnected) return;
-
-    setState(() => _isRunning = !_isRunning);
-
-    if (_isRunning) {
-      BLEManager.send("SCAN_WIFI");
-
-      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-        final rand = Random();
-        double v = (_lastValue + rand.nextDouble() * 10 - 5)
-            .clamp(0, 100);
-        _lastValue = v;
-
-        setState(() {
-          _trafficData.add(TrafficPoint(v));
-          if (_trafficData.length > 30) {
-            _trafficData.removeAt(0);
-          }
-        });
-      });
-    } else {
-      BLEManager.send("STOP_SCAN");
-      _timer?.cancel();
+  void createAttack() {
+    if (!BLEManager.isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("❌ غير متصل بالبلوتوث")),
+      );
+      return;
     }
+
+    if (BLEManager.attacks.isNotEmpty) return;
+
+    final now = DateTime.now();
+
+    BLEManager.addAttack({
+      "ssid": currentNetwork == 'لم يتم الاختيار'
+          ? networks[0]
+          : currentNetwork,
+      "type": "DEAUTH ATTACK",
+      "risk": 90,
+      "time": TimeOfDay.now().format(context),
+      "date": "${now.year}-${now.month}-${now.day}",
+    });
+
+    setState(() {});
   }
 
-  void _showNetworks() {
-    if (!BLEManager.isConnected) return;
-
-    networks.clear();
-
-    BLEManager.send("GET_WIFI");
-
+  void showNetworks() {
     showModalBottomSheet(
       context: context,
-      builder: (_) => networks.isEmpty
-          ? const Center(child: Text("جاري تحميل الشبكات..."))
-          : ListView(
-              children: networks.map((n) {
-                return ListTile(
-                  title: Text(n),
-                  onTap: () {
-                    setState(() => currentNetwork = n);
-                    Navigator.pop(context);
-                  },
-                );
-              }).toList(),
-            ),
-    );
-  }
-
-  Widget graph() {
-    return LineChart(
-      LineChartData(
-        titlesData: const FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        lineBarsData: [
-          LineChartBarData(
-            isCurved: true,
-            spots: List.generate(_trafficData.length, (i) {
-              return FlSpot(i.toDouble(), _trafficData[i].value);
-            }),
-          ),
-        ],
+      builder: (_) => ListView(
+        children: networks.map((n) {
+          return ListTile(
+            leading: const Icon(Icons.wifi),
+            title: Text(n),
+            onTap: () {
+              setState(() => currentNetwork = n);
+              Navigator.pop(context);
+            },
+          );
+        }).toList(),
       ),
     );
   }
 
   @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final attacks = BLEManager.attacks;
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Home")),
+      backgroundColor: const Color(0xFF0B1A2A),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0B1A2A),
+        title: const Text("لوحة الحماية الذكية"),
+        centerTitle: true,
+      ),
       body: Column(
         children: [
-          Text(BLEManager.isConnected
-              ? "🟢 متصل"
-              : "❌ غير متصل"),
-          ElevatedButton(
-            onPressed: _toggleRunning,
-            child: Text(_isRunning ? "إيقاف" : "تشغيل"),
+          const SizedBox(height: 10),
+
+          Text(
+            BLEManager.isConnected ? "🟢 متصل" : "⚠️ غير متصل",
+            style: const TextStyle(color: Colors.white),
           ),
-          ElevatedButton(
-            onPressed: _showNetworks,
-            child: Text(currentNetwork),
+
+          const SizedBox(height: 10),
+
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: createAttack,
+                  child: const Text("بدء الفحص"),
+                ),
+              ),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: showNetworks,
+                  child: Text(currentNetwork),
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 200, child: graph()),
+
+          const SizedBox(height: 10),
+
+          Text(
+            "الهجمات: ${attacks.length}",
+            style: const TextStyle(color: Colors.white),
+          ),
+
+          const SizedBox(height: 10),
+
+          Expanded(
+            child: ListView.builder(
+              itemCount: attacks.length,
+              itemBuilder: (_, i) {
+                final a = attacks[i];
+
+                return Card(
+                  color: const Color(0xFF132C45),
+                  child: ListTile(
+                    leading: const Icon(
+                      Icons.warning,
+                      color: Colors.orange,
+                    ),
+                    title: Text(
+                      a["type"],
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    subtitle: Text(
+                      "${a["ssid"]}\n${a["date"]} ${a["time"]}",
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    trailing: Text(
+                      "${a["risk"]}%",
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
