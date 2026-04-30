@@ -1,37 +1,32 @@
 import 'package:flutter/material.dart';
 import '../ble_manager.dart';
 
-class ReportsScreen extends StatefulWidget {
+class ReportsScreen extends StatelessWidget {
   const ReportsScreen({super.key});
 
   @override
-  State<ReportsScreen> createState() => _ReportsScreenState();
-}
-
-class _ReportsScreenState extends State<ReportsScreen> {
-  String report = "";
-
-  @override
-  void initState() {
-    super.initState();
-
-    BLEManager.setListener((data) {
-      final msg = data["msg"]?.toString() ?? "";
-
-      if (msg.contains("Attacks") || msg.contains("No attacks")) {
-        setState(() {
-          report = msg;
-        });
-      }
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final reports = BLEManager.reports;
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Reports")),
-      body: Center(
-        child: Text(report.isEmpty ? "لا يوجد تقرير" : report),
+      backgroundColor: const Color(0xFF0B1A2A),
+      appBar: AppBar(title: const Text("التقارير")),
+      body: ListView.builder(
+        itemCount: reports.length,
+        itemBuilder: (_, i) {
+          final r = reports[i];
+
+          return ListTile(
+            title: Text(
+              r["title"],
+              style: const TextStyle(color: Colors.white),
+            ),
+            subtitle: Text(
+              "${r["type"]}\n${r["date"]} ${r["time"]}",
+              style: const TextStyle(color: Colors.white70),
+            ),
+          );
+        },
       ),
     );
   }
