@@ -4,15 +4,23 @@ import 'package:permission_handler/permission_handler.dart';
 import '../ble_manager.dart';
 
 class BluetoothScreen extends StatefulWidget {
-  final Function(BluetoothDevice, BluetoothCharacteristic) onConnected;
+  final Function(
+    BluetoothDevice,
+    BluetoothCharacteristic,
+  ) onConnected;
 
-  const BluetoothScreen({super.key, required this.onConnected});
+  const BluetoothScreen({
+    super.key,
+    required this.onConnected,
+  });
 
   @override
-  State<BluetoothScreen> createState() => _BluetoothScreenState();
+  State<BluetoothScreen> createState() =>
+      _BluetoothScreenState();
 }
 
-class _BluetoothScreenState extends State<BluetoothScreen> {
+class _BluetoothScreenState
+    extends State<BluetoothScreen> {
   List<ScanResult> devices = [];
   bool isScanning = false;
 
@@ -33,46 +41,96 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   Future<void> startScan() async {
     setState(() => isScanning = true);
 
+    devices.clear();
+
+    await FlutterBluePlus.stopScan();
+
     await FlutterBluePlus.startScan(
       timeout: const Duration(seconds: 10),
     );
 
     FlutterBluePlus.scanResults.listen((results) {
       if (!mounted) return;
-      setState(() => devices = results);
+
+      final filtered = results.where((r) {
+        final name = r.device.platformName;
+        return name.isNotEmpty;
+      }).toList();
+
+      setState(() {
+        devices = filtered;
+      });
     });
 
-    await Future.delayed(const Duration(seconds: 10));
-    if (mounted) setState(() => isScanning = false);
+    await Future.delayed(
+      const Duration(seconds: 10),
+    );
+
+    if (mounted) {
+      setState(() => isScanning = false);
+    }
   }
 
-  Future<void> connect(BluetoothDevice d) async {
+  Future<void> connect(
+    BluetoothDevice device,
+  ) async {
     try {
-      await d.connect();
+      await device.connect(
+        timeout: const Duration(seconds: 15),
+      );
 
-      final services = await d.discoverServices();
+      final services =
+          await device.discoverServices();
 
-      BluetoothCharacteristic? writeChar;
+      BluetoothCharacteristic? selected;
 
-      for (var s in services) {
-        for (var c in s.characteristics) {
-          if (c.properties.write || c.properties.writeWithoutResponse) {
-            writeChar = c;
+      for (final service in services) {
+        for (final c
+            in service.characteristics) {
+          if (c.properties.write ||
+              c.properties.writeWithoutResponse) {
+            selected = c;
+            break;
           }
         }
       }
 
-      if (writeChar != null) {
-        await BLEManager.setConnection(d, writeChar);
-        widget.onConnected(d, writeChar);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("❌ لا يوجد characteristic للإرسال")),
+      if (selected == null) {
+        throw Exception(
+          "لم يتم العثور على Characteristic",
         );
       }
+
+      await BLEManager.setConnection(
+        device,
+        selected,
+      );
+
+      widget.onConnected(
+        device,
+        selected,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(
+            "✅ تم الاتصال بـ ${device.platformName}",
+          ),
+        ),
+      );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("خطأ: $e")),
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(
+            "❌ فشل الاتصال\n$e",
+          ),
+        ),
       );
     }
   }
@@ -86,32 +144,66 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor:
+          const Color(0xFF0F0F1A),
       appBar: AppBar(
-        title: const Text("Bluetooth"),
+        title: const Text(
+          "Bluetooth Devices",
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
             onPressed: startScan,
-          )
+            icon: const Icon(
+              Icons.refresh,
+            ),
+          ),
         ],
       ),
       body: isScanning
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child:
+                  CircularProgressIndicator(),
+            )
           : ListView.builder(
               itemCount: devices.length,
               itemBuilder: (_, i) {
-                final d = devices[i].device;
+                final device =
+                    devices[i].device;
 
-                return ListTile(
-                  title: Text(
-                    d.platformName.isEmpty
-                        ? "Unknown"
-                        : d.platformName,
+                return Card(
+                  color: const Color(
+                    0xFF1E1E2E,
                   ),
-                  subtitle: Text(d.remoteId.str),
-                  trailing: ElevatedButton(
-                    onPressed: () => connect(d),
-                    child: const Text("Connect"),
+                  child: ListTile(
+                    title: Text(
+                      device.platformName
+                              .isEmpty
+                          ? "Unknown Device"
+                          : device
+                              .platformName,
+                      style:
+                          const TextStyle(
+                        color:
+                            Colors.white,
+                      ),
+                    ),
+                    subtitle: Text(
+                      device.remoteId.str,
+                      style:
+                          const TextStyle(
+                        color:
+                            Colors.white70,
+                      ),
+                    ),
+                    trailing:
+                        ElevatedButton(
+                      onPressed: () =>
+                          connect(device),
+                      child:
+                          const Text(
+                        "Connect",
+                      ),
+                    ),
                   ),
                 );
               },
