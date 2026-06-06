@@ -37,25 +37,31 @@ class _AppState extends State<App> {
     await Permission.bluetoothConnect.request();
   }
 
-  // ✅ الحل هنا
-  void onConnect(BluetoothDevice device,
-      BluetoothCharacteristic char) async {
-    await BLEManager.setConnection(device, char);
+  Future<void> onConnect(
+    BluetoothDevice device,
+    BluetoothCharacteristic characteristic,
+  ) async {
+    await BLEManager.setConnection(
+      device,
+      characteristic,
+    );
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ تم الاتصال")),
-      );
+    if (!mounted) return;
 
-      setState(() => index = 0);
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("✅ تم الاتصال بالجهاز"),
+      ),
+    );
+
+    setState(() => index = 0);
   }
 
   @override
   Widget build(BuildContext context) {
     final screens = [
       const HomeScreen(),
-      BluetoothScreen(onConnected: onConnect), // ✅ مهم
+      BluetoothScreen(onConnected: onConnect),
       const ReportsScreen(),
       const AttacksScreen(),
       const StatisticsScreen(),
@@ -65,11 +71,15 @@ class _AppState extends State<App> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        body: SafeArea(child: screens[index]),
+        body: SafeArea(
+          child: screens[index],
+        ),
         bottomNavigationBar: BottomNav(
           selectedIndex: index,
           isArabic: true,
-          onItemTapped: (i) => setState(() => index = i),
+          onItemTapped: (i) {
+            setState(() => index = i);
+          },
         ),
       ),
     );
