@@ -9,57 +9,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String currentNetwork = 'لم يتم الاختيار';
 
-  final networks = [
-    "Redmi",
-    "AL-SAREE-NET-774640555",
-    "AL-SAREE-NET(139)774640555",
-    "AL-SAREE-NET(252)774640555",
-  ];
-
-  void createAttack() {
-    if (!BLEManager.isConnected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("❌ غير متصل بالبلوتوث")),
-      );
-      return;
-    }
-
-    if (BLEManager.attacks.isNotEmpty) return;
-
-    final now = DateTime.now();
-
-    BLEManager.addAttack({
-      "ssid": currentNetwork == 'لم يتم الاختيار'
-          ? networks[0]
-          : currentNetwork,
-      "type": "DEAUTH ATTACK",
-      "risk": 90,
-      "time": TimeOfDay.now().format(context),
-      "date": "${now.year}-${now.month}-${now.day}",
-    });
-
-    setState(() {});
-  }
-
-  void showNetworks() {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => ListView(
-        children: networks.map((n) {
-          return ListTile(
-            leading: const Icon(Icons.wifi),
-            title: Text(n),
-            onTap: () {
-              setState(() => currentNetwork = n);
-              Navigator.pop(context);
-            },
-          );
-        }).toList(),
-      ),
-    );
-  }
+  String currentNetwork = "لم يتم اكتشاف شبكة";
 
   @override
   Widget build(BuildContext context) {
@@ -67,79 +18,160 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B1A2A),
+
       appBar: AppBar(
         backgroundColor: const Color(0xFF0B1A2A),
-        title: const Text("لوحة الحماية الذكية"),
         centerTitle: true,
+        title: const Text(
+          "لوحة الحماية الذكية",
+        ),
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 10),
 
-          Text(
-            BLEManager.isConnected ? "🟢 متصل" : "⚠️ غير متصل",
-            style: const TextStyle(color: Colors.white),
-          ),
+      body: Padding(
+        padding: const EdgeInsets.all(15),
+        child: Column(
+          children: [
 
-          const SizedBox(height: 10),
-
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: createAttack,
-                  child: const Text("بدء الفحص"),
-                ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: const Color(0xFF132C45),
+                borderRadius: BorderRadius.circular(15),
               ),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: showNetworks,
-                  child: Text(currentNetwork),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          Text(
-            "الهجمات: ${attacks.length}",
-            style: const TextStyle(color: Colors.white),
-          ),
-
-          const SizedBox(height: 10),
-
-          Expanded(
-            child: ListView.builder(
-              itemCount: attacks.length,
-              itemBuilder: (_, i) {
-                final a = attacks[i];
-
-                return Card(
-                  color: const Color(0xFF132C45),
-                  child: ListTile(
-                    leading: const Icon(
-                      Icons.warning,
-                      color: Colors.orange,
-                    ),
-                    title: Text(
-                      a["type"],
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    subtitle: Text(
-                      "${a["ssid"]}\n${a["date"]} ${a["time"]}",
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                    trailing: Text(
-                      "${a["risk"]}%",
-                      style: const TextStyle(color: Colors.red),
+              child: Column(
+                children: [
+                  Text(
+                    BLEManager.isConnected
+                        ? "🟢 الجهاز متصل"
+                        : "🔴 الجهاز غير متصل",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
                     ),
                   ),
-                );
-              },
+
+                  const SizedBox(height: 10),
+
+                  Text(
+                    currentNetwork,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 15),
+
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      await BLEManager.send(
+                        '{"cmd":"START_SCAN"}',
+                      );
+                    },
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text(
+                      "بدء الفحص",
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 10),
+
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      await BLEManager.send(
+                        '{"cmd":"STOP_SCAN"}',
+                      );
+                    },
+                    icon: const Icon(Icons.stop),
+                    label: const Text(
+                      "إيقاف الفحص",
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: const Color(0xFF132C45),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Text(
+                "عدد الهجمات المكتشفة: ${attacks.length}",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 15),
+
+            Expanded(
+              child: attacks.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "لا توجد هجمات مكتشفة",
+                        style: TextStyle(
+                          color: Colors.white70,
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: attacks.length,
+                      itemBuilder: (_, i) {
+                        final attack = attacks[i];
+
+                        return Card(
+                          color: const Color(0xFF132C45),
+                          child: ListTile(
+                            leading: const Icon(
+                              Icons.warning,
+                              color: Colors.orange,
+                            ),
+                            title: Text(
+                              attack["type"]?.toString() ??
+                                  "UNKNOWN",
+                              style: const TextStyle(
+                                color: Colors.white,
+                              ),
+                            ),
+                            subtitle: Text(
+                              "${attack["ssid"] ?? ""}\n${attack["date"] ?? ""} ${attack["time"] ?? ""}",
+                              style: const TextStyle(
+                                color: Colors.white70,
+                              ),
+                            ),
+                            trailing: Text(
+                              "${attack["risk"] ?? 0}%",
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontWeight:
+                                    FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
