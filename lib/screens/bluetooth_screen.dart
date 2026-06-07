@@ -21,6 +21,7 @@ class BluetoothScreen extends StatefulWidget {
 
 class _BluetoothScreenState
     extends State<BluetoothScreen> {
+
   List<ScanResult> devices = [];
   bool isScanning = false;
 
@@ -39,21 +40,19 @@ class _BluetoothScreenState
   }
 
   Future<void> startScan() async {
-    setState(() => isScanning = true);
-
-    devices.clear();
+    setState(() {
+      isScanning = true;
+      devices.clear();
+    });
 
     await FlutterBluePlus.stopScan();
-
-    await FlutterBluePlus.startScan(
-      timeout: const Duration(seconds: 10),
-    );
 
     FlutterBluePlus.scanResults.listen((results) {
       if (!mounted) return;
 
       final filtered = results.where((r) {
         final name = r.device.platformName;
+
         return name.isNotEmpty;
       }).toList();
 
@@ -62,12 +61,18 @@ class _BluetoothScreenState
       });
     });
 
+    await FlutterBluePlus.startScan(
+      timeout: const Duration(seconds: 10),
+    );
+
     await Future.delayed(
       const Duration(seconds: 10),
     );
 
     if (mounted) {
-      setState(() => isScanning = false);
+      setState(() {
+        isScanning = false;
+      });
     }
   }
 
@@ -82,33 +87,48 @@ class _BluetoothScreenState
       final services =
           await device.discoverServices();
 
-      BluetoothCharacteristic? selected;
+      BluetoothCharacteristic? target;
 
       for (final service in services) {
         for (final c
             in service.characteristics) {
-          if (c.properties.write ||
-              c.properties.writeWithoutResponse) {
-            selected = c;
+
+          if ((c.properties.write ||
+                  c.properties.writeWithoutResponse) &&
+              c.properties.notify) {
+            target = c;
             break;
           }
         }
       }
 
-      if (selected == null) {
+      if (target == null) {
+        for (final service in services) {
+          for (final c
+              in service.characteristics) {
+            if (c.properties.write ||
+                c.properties.writeWithoutResponse) {
+              target = c;
+              break;
+            }
+          }
+        }
+      }
+
+      if (target == null) {
         throw Exception(
-          "لم يتم العثور على Characteristic",
+          "Characteristic غير موجود",
         );
       }
 
       await BLEManager.setConnection(
         device,
-        selected,
+        target,
       );
 
       widget.onConnected(
         device,
-        selected,
+        target,
       );
 
       if (!mounted) return;
@@ -122,6 +142,7 @@ class _BluetoothScreenState
         ),
       );
     } catch (e) {
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context)
@@ -143,12 +164,16 @@ class _BluetoothScreenState
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       backgroundColor:
           const Color(0xFF0F0F1A),
+
       appBar: AppBar(
+        backgroundColor:
+            const Color(0xFF1E1E2E),
         title: const Text(
-          "Bluetooth Devices",
+          "Bluetooth",
         ),
         actions: [
           IconButton(
@@ -159,6 +184,7 @@ class _BluetoothScreenState
           ),
         ],
       ),
+
       body: isScanning
           ? const Center(
               child:
@@ -167,20 +193,26 @@ class _BluetoothScreenState
           : ListView.builder(
               itemCount: devices.length,
               itemBuilder: (_, i) {
+
                 final device =
                     devices[i].device;
 
                 return Card(
-                  color: const Color(
+                  color:
+                      const Color(
                     0xFF1E1E2E,
                   ),
                   child: ListTile(
+                    leading:
+                        const Icon(
+                      Icons.bluetooth,
+                      color: Colors.blue,
+                    ),
                     title: Text(
                       device.platformName
                               .isEmpty
                           ? "Unknown Device"
-                          : device
-                              .platformName,
+                          : device.platformName,
                       style:
                           const TextStyle(
                         color:
@@ -198,7 +230,9 @@ class _BluetoothScreenState
                     trailing:
                         ElevatedButton(
                       onPressed: () =>
-                          connect(device),
+                          connect(
+                        device,
+                      ),
                       child:
                           const Text(
                         "Connect",
