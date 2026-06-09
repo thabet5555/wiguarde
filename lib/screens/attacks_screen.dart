@@ -1,74 +1,54 @@
 import 'package:flutter/material.dart';
 import '../ble_manager.dart';
 
-class AttacksScreen extends StatefulWidget {
+class AttacksScreen extends StatelessWidget {
   const AttacksScreen({super.key});
 
   @override
-  State<AttacksScreen> createState() => _AttacksScreenState();
-}
-
-class _AttacksScreenState extends State<AttacksScreen> {
-  @override
   Widget build(BuildContext context) {
-    final attacks = BLEManager.attacks;
-
     return Scaffold(
       backgroundColor: const Color(0xFF0B1A2A),
-
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1A2A),
-        centerTitle: true,
         title: const Text("الهجمات المكتشفة"),
+        actions: [
+          IconButton(
+            onPressed: () async {
+              await BLEManager.getHistory();
+            },
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
-
-      body: attacks.isEmpty
+      body: BLEManager.attacks.isEmpty
           ? const Center(
               child: Text(
-                "لا توجد هجمات مكتشفة",
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 18,
-                ),
+                "لا توجد هجمات مسجلة بعد",
+                style: TextStyle(color: Colors.white70),
               ),
             )
           : ListView.builder(
-              itemCount: attacks.length,
+              itemCount: BLEManager.attacks.length,
               itemBuilder: (_, i) {
-                final attack = attacks[i];
-
+                final attack = BLEManager.attacks[i];
+                Color riskColor = Colors.yellow;
+                if (attack['risk'] == 3) riskColor = Colors.red;
+                else if (attack['risk'] == 2) riskColor = Colors.orange;
                 return Card(
                   color: const Color(0xFF132C45),
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
+                  margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   child: ListTile(
-                    leading: const Icon(
-                      Icons.warning_amber_rounded,
-                      color: Colors.orange,
-                      size: 32,
-                    ),
+                    leading: Icon(Icons.warning, color: riskColor),
                     title: Text(
-                      attack["type"]?.toString() ?? "UNKNOWN",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      attack['type'] ?? "Unknown",
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
-                      "${attack["ssid"] ?? ""}\n${attack["date"] ?? ""} ${attack["time"] ?? ""}",
-                      style: const TextStyle(
-                        color: Colors.white70,
-                      ),
+                      "${attack['ssid']}  •  ${attack['time']}",
+                      style: const TextStyle(color: Colors.white70),
                     ),
                     trailing: Text(
-                      "${attack["risk"] ?? 0}%",
-                      style: const TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
+                      attack['risk'] == 3 ? "عالي" : (attack['risk'] == 2 ? "متوسط" : "منخفض"),
+                      style: TextStyle(color: riskColor),
                     ),
                   ),
                 );
