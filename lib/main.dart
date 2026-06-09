@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-
 import 'ble_manager.dart';
 import 'screens/home_screen.dart';
 import 'screens/bluetooth_screen.dart';
@@ -11,13 +10,10 @@ import 'screens/reports_screen.dart';
 import 'screens/settings_screen.dart';
 import 'widgets/bottom_nav.dart';
 
-void main() {
-  runApp(const App());
-}
+void main() => runApp(const App());
 
 class App extends StatefulWidget {
   const App({super.key});
-
   @override
   State<App> createState() => _AppState();
 }
@@ -28,58 +24,61 @@ class _AppState extends State<App> {
   @override
   void initState() {
     super.initState();
-    requestPermissions();
+    _requestPermissions();
   }
 
-  Future<void> requestPermissions() async {
-    await Permission.locationWhenInUse.request();
-    await Permission.bluetoothScan.request();
-    await Permission.bluetoothConnect.request();
+  Future<void> _requestPermissions() async {
+    await [
+      Permission.locationWhenInUse,
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+    ].request();
   }
 
-  Future<void> onConnect(
+  Future<void> onConnected(
     BluetoothDevice device,
-    BluetoothCharacteristic characteristic,
+    BluetoothCharacteristic txChar,
+    BluetoothCharacteristic rxChar,
   ) async {
-    await BLEManager.setConnection(
-      device,
-      characteristic,
-    );
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("✅ تم الاتصال بالجهاز"),
-      ),
-    );
-
-    setState(() => index = 0);
+    try {
+      await BLEManager.setConnection(device, txChar, rxChar);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ تم الاتصال بجهاز ESP")),
+      );
+      setState(() => index = 0);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("❌ فشل الاتصال: $e")),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final screens = [
-      const HomeScreen(),
-      BluetoothScreen(onConnected: onConnect),
-      const ReportsScreen(),
-      const AttacksScreen(),
-      const StatisticsScreen(),
-      const SettingsScreen(),
-    ];
-
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'WiFi Attack Detector',
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF0B1A2A),
+        appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF0B1A2A)),
+      ),
       home: Scaffold(
         body: SafeArea(
-          child: screens[index],
+          child: [
+            const HomeScreen(),
+            BluetoothScreen(onConnected: onConnected),
+            const ReportsScreen(),
+            const AttacksScreen(),
+            const StatisticsScreen(),
+            const SettingsScreen(),
+          ][index],
         ),
         bottomNavigationBar: BottomNav(
           selectedIndex: index,
           isArabic: true,
-          onItemTapped: (i) {
-            setState(() => index = i);
-          },
+          onItemTapped: (i) => setState(() => index = i),
         ),
       ),
     );
