@@ -1,182 +1,77 @@
 import 'package:flutter/material.dart';
 import '../ble_manager.dart';
 
-class StatisticsScreen extends StatefulWidget {
+class StatisticsScreen extends StatelessWidget {
   const StatisticsScreen({super.key});
 
   @override
-  State<StatisticsScreen> createState() =>
-      _StatisticsScreenState();
-}
-
-class _StatisticsScreenState
-    extends State<StatisticsScreen> {
-  @override
   Widget build(BuildContext context) {
     final attacks = BLEManager.attacks;
-
-    int totalAttacks = attacks.length;
-
-    int highRisk = attacks
-        .where((e) => (e["risk"] ?? 0) >= 80)
-        .length;
+    Map<String, int> typeCount = {};
+    for (var a in attacks) {
+      String type = a['type'] ?? 'Unknown';
+      typeCount[type] = (typeCount[type] ?? 0) + 1;
+    }
 
     return Scaffold(
-      backgroundColor:
-          const Color(0xFF0B1A2A),
-
+      backgroundColor: const Color(0xFF0B1A2A),
       appBar: AppBar(
-        backgroundColor:
-            const Color(0xFF0B1A2A),
-        centerTitle: true,
-        title: const Text(
-          "الإحصائيات",
-        ),
+        title: const Text("الإحصائيات"),
       ),
-
       body: Padding(
-        padding:
-            const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Container(
-              width: double.infinity,
-              padding:
-                  const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color:
-                    const Color(0xFF132C45),
-                borderRadius:
-                    BorderRadius.circular(
-                  15,
+            Card(
+              color: const Color(0xFF132C45),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    const Text(
+                      "إجمالي الهجمات",
+                      style: TextStyle(color: Colors.white70, fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "${attacks.length}",
+                      style: const TextStyle(
+                        fontSize: 48,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.cyan,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Column(
-                children: [
-                  const Text(
-                    "إجمالي الهجمات",
-                    style: TextStyle(
-                      color:
-                          Colors.white70,
-                    ),
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
-                  Text(
-                    "$totalAttacks",
-                    style:
-                        const TextStyle(
-                      color:
-                          Colors.white,
-                      fontSize: 30,
-                      fontWeight:
-                          FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
             ),
-
-            const SizedBox(
-              height: 15,
+            const SizedBox(height: 20),
+            const Text(
+              "التفصيل حسب النوع",
+              style: TextStyle(color: Colors.white, fontSize: 18),
             ),
-
-            Container(
-              width: double.infinity,
-              padding:
-                  const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color:
-                    const Color(0xFF132C45),
-                borderRadius:
-                    BorderRadius.circular(
-                  15,
-                ),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    "الهجمات عالية الخطورة",
-                    style: TextStyle(
-                      color:
-                          Colors.white70,
-                    ),
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
-                  Text(
-                    "$highRisk",
-                    style:
-                        const TextStyle(
-                      color: Colors.red,
-                      fontSize: 28,
-                      fontWeight:
-                          FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(
-              height: 20,
-            ),
-
+            const SizedBox(height: 10),
             Expanded(
-              child: attacks.isEmpty
+              child: typeCount.isEmpty
                   ? const Center(
                       child: Text(
-                        "لا توجد بيانات حالياً",
-                        style:
-                            TextStyle(
-                          color: Colors
-                              .white70,
-                        ),
+                        "لا توجد بيانات",
+                        style: TextStyle(color: Colors.white70),
                       ),
                     )
                   : ListView.builder(
-                      itemCount:
-                          attacks.length,
-                      itemBuilder:
-                          (_, i) {
-                        final attack =
-                            attacks[i];
-
+                      itemCount: typeCount.keys.length,
+                      itemBuilder: (_, i) {
+                        String type = typeCount.keys.elementAt(i);
+                        int count = typeCount[type]!;
                         return Card(
-                          color:
-                              const Color(
-                            0xFF132C45,
-                          ),
-                          child:
-                              ListTile(
-                            leading:
-                                const Icon(
-                              Icons
-                                  .analytics,
-                              color: Colors
-                                  .cyan,
-                            ),
-                            title:
-                                Text(
-                              attack["type"]
-                                  .toString(),
-                              style:
-                                  const TextStyle(
-                                color: Colors
-                                    .white,
-                              ),
-                            ),
-                            subtitle:
-                                Text(
-                              attack["ssid"]
-                                  .toString(),
-                              style:
-                                  const TextStyle(
-                                color: Colors
-                                    .white70,
-                              ),
+                          color: const Color(0xFF132C45),
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          child: ListTile(
+                            title: Text(type, style: const TextStyle(color: Colors.white)),
+                            trailing: Text(
+                              "$count",
+                              style: const TextStyle(color: Colors.cyan, fontSize: 18),
                             ),
                           ),
                         );
