@@ -63,7 +63,6 @@ class BLEManager {
       if (text.contains("Monitoring started")) isMonitoring = true;
       if (text.contains("Monitoring stopped")) isMonitoring = false;
       if (text.contains("Selected")) {
-        // استخراج اسم الشبكة من "OK: Selected MyWiFi (Ch 6)"
         RegExp reg = RegExp(r'Selected (.+?) \(');
         Match? m = reg.firstMatch(text);
         if (m != null) currentNetwork = m.group(1)!;
@@ -148,7 +147,7 @@ class BLEManager {
     }
   }
 
-  // أوامر ESP
+  // أوامر ESP (الموجودة كلها هنا)
   static Future<void> scanNetworks() async => send("scan");
   static Future<void> selectNetwork(int index) async {
     if (index >= 0 && index < networks.length) {
@@ -160,6 +159,7 @@ class BLEManager {
   static Future<void> backToMenu() async => send("back");
   static Future<void> getHistory() async => send("history");
   static Future<void> getStatus() async => send("status");
+  static Future<void> getSettings() async => send("settings");   // <--- هذه الدالة كانت مفقودة
   static Future<void> setThreshold(String name, int value) async =>
       send("threshold $name $value");
 }
