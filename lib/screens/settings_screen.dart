@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../ble_manager.dart';
 
@@ -10,148 +9,105 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool notifications = true;
-  bool protection = true;
-  bool autoScan = false;
+  final Map<String, TextEditingController> _controllers = {};
+  final List<String> _thresholdNames = [
+    'deauth', 'beacon', 'probe', 'mac', 'arp', 'frag', 'rts', 'arpscan'
+  ];
 
-  Widget _divider() {
-    return const SizedBox(height: 12);
-  }
-
-  // 🔥 إصلاح الإرسال
-  void _sendCommand(String cmd, bool value) {
-    final jsonCmd = jsonEncode({
-      "cmd": cmd,
-      "value": value,
-    });
-
-    BLEManager.send(jsonCmd);
-  }
-
-  Widget buildCard({
-    required String title,
-    required String subtitle,
-    required bool value,
-    required Function(bool) onChanged,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2E),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black45,
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: SwitchListTile(
-        activeColor: color,
-        inactiveThumbColor: Colors.grey,
-        title: Row(
-          children: [
-            Icon(icon, color: color),
-            const SizedBox(width: 10),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(color: Colors.white70),
-        ),
-        value: value,
-        onChanged: (v) {
-          onChanged(v);
-        },
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    for (var name in _thresholdNames) {
+      _controllers[name] = TextEditingController();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F1A),
-
+      backgroundColor: const Color(0xFF0B1A2A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E2E),
-        title: const Text(
-          'إعدادات النظام',
-          style: TextStyle(color: Colors.white),
-        ),
-        centerTitle: true,
+        title: const Text("الإعدادات"),
       ),
-
-      body: ListView(
+      body: Padding(
         padding: const EdgeInsets.all(16),
-        children: [
-
-          buildCard(
-            title: "الإشعارات",
-            subtitle: "تنبيهات فورية عند اكتشاف تهديد",
-            value: notifications,
-            icon: Icons.notifications,
-            color: Colors.blue,
-            onChanged: (v) {
-              setState(() => notifications = v);
-              _sendCommand("NOTIFICATIONS", v);
-            },
-          ),
-
-          buildCard(
-            title: "وضع الحماية",
-            subtitle: "تشغيل نظام الحماية الذكي",
-            value: protection,
-            icon: Icons.shield,
-            color: Colors.green,
-            onChanged: (v) {
-              setState(() => protection = v);
-              _sendCommand("PROTECTION", v);
-            },
-          ),
-
-          buildCard(
-            title: "الفحص التلقائي",
-            subtitle: "تشغيل الفحص بدون تدخل",
-            value: autoScan,
-            icon: Icons.radar,
-            color: Colors.orange,
-            onChanged: (v) {
-              setState(() => autoScan = v);
-              _sendCommand("AUTO_SCAN", v);
-            },
-          ),
-
-          const SizedBox(height: 10),
-
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E1E2E),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const ListTile(
-              leading: Icon(Icons.info, color: Colors.blue),
-              title: Text(
-                'عن التطبيق',
-                style: TextStyle(color: Colors.white),
+        child: ListView(
+          children: [
+            Card(
+              color: const Color(0xFF132C45),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    const Text(
+                      "عتبات الكشف",
+                      style: TextStyle(color: Colors.white, fontSize: 18),
+                    ),
+                    const SizedBox(height: 10),
+                    ..._thresholdNames.map((name) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              name.toUpperCase(),
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 1,
+                            child: TextField(
+                              controller: _controllers[name],
+                              keyboardType: TextInputType.number,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: const InputDecoration(
+                                filled: true,
+                                fillColor: Color(0xFF0B1A2A),
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              int? val = int.tryParse(_controllers[name]!.text);
+                              if (val != null) {
+                                BLEManager.setThreshold(name, val);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text("تم تحديث $name إلى $val")),
+                                );
+                              }
+                            },
+                            child: const Text("تحديث"),
+                          ),
+                        ],
+                      ),
+                    )),
+                  ],
+                ),
               ),
-              subtitle: Text(
-                'نظام كشف هجمات الواي فاي باستخدام ESP32-S3',
-                style: TextStyle(color: Colors.white70),
-              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () => BLEManager.getSettings(),
+              icon: const Icon(Icons.refresh),
+              label: const Text("جلب الإعدادات من ESP"),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton.icon(
+              onPressed: () => BLEManager.backToMenu(),
+              icon: const Icon(Icons.arrow_back),
+              label: const Text("العودة للقائمة الرئيسية (ESP)"),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton.icon(
+              onPressed: () => BLEManager.getStatus(),
+              icon: const Icon(Icons.info),
+              label: const Text("حالة الجهاز"),
+            ),
+          ],
+        ),
       ),
     );
   }
