@@ -1,11 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../ble_manager.dart';
 
 const String SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
-const String RX_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"; // كتابة الأوامر
-const String TX_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"; // استقبال الإشعارات
+const String RX_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";
+const String TX_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
 
 class BluetoothScreen extends StatefulWidget {
   final Function(BluetoothDevice, BluetoothCharacteristic, BluetoothCharacteristic) onConnected;
@@ -28,22 +29,16 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
   }
 
   Future<void> _requestPermissionsAndStart() async {
-    // طلب كل الأذونات الممكنة للبلوتوث والموقع
     await [
       Permission.locationWhenInUse,
       Permission.bluetoothScan,
       Permission.bluetoothConnect,
     ].request();
-
-    // انتظار لحظة حتى تظهر الأذونات في النظام
     await Future.delayed(const Duration(milliseconds: 500));
-
-    // بدء البحث تلقائياً
     startScan();
   }
 
   Future<void> startScan() async {
-    // إيقاف أي بحث سابق وتنظيف
     await FlutterBluePlus.stopScan();
     await _scanSubscription?.cancel();
 
@@ -52,16 +47,14 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
       devices.clear();
     });
 
-    // الاستماع لنتائج البحث
     _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
       if (!mounted) return;
-      // نعرض جميع الأجهزة التي لها اسم (أو نرشح لاسم ESP32 إن أردت)
       final filtered = results.where((r) => r.device.platformName.isNotEmpty).toList();
       setState(() {
         devices = filtered;
       });
     }, onError: (error) {
-      print("خطأ في البحث: $error");
+      print("Scan error: $error");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("خطأ: $error")),
@@ -70,20 +63,15 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
       }
     });
 
-    // بدء البحث الفعلي مع مدة زمنية
     try {
-      await FlutterBluePlus.startScan(
-        timeout: const Duration(seconds: 30),
-        androidLegacy: true, // ضروري لأجهزة ESP32
-      );
-      // بعد انتهاء المهلة أوقف حالة البحث
+      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 30));
       Future.delayed(const Duration(seconds: 30), () {
         if (mounted && isScanning) {
           setState(() => isScanning = false);
         }
       });
     } catch (e) {
-      print("فشل بدء البحث: $e");
+      print("Start scan error: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("فشل البدء: $e")),
@@ -180,7 +168,7 @@ class _BluetoothScreenState extends State<BluetoothScreen> {
           : devices.isEmpty
               ? const Center(
                   child: Text(
-                    "لا توجد أجهزة. تأكد من:\n- تشغيل جهاز ESP32\n- تفعيل Bluetooth والموقع\n- الضغط على زر التحديث",
+                    "لا توجد أجهزة.\nتأكد من تشغيل ESP32\nوتفعيل Bluetooth والموقع",
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white70),
                   ),
